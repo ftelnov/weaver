@@ -37,4 +37,3 @@ jobs:
           push: true
           tags: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.version }}"
           labels: ${{ steps.meta.outputs.labels }}
-          target: "base"
