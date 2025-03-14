@@ -1,0 +1,12 @@
+[package]
+name = "tests"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tarantool = { workspace = true, features = ["picodata", "test"] }
+tarantool-test.workspace = true
+weaver = { workspace = true }
+
+[lib]
+crate-type = ["lib", "cdylib"]

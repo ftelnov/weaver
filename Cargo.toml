@@ -1,20 +1,10 @@
-[package]
-name = "weaver"
-version = "0.0.0"
-rust-version = "1.74.0"
-edition = "2021"
-description = "Weaver is a powerful web framework for Picodata ecosystem"
-readme = "README.md"
-homepage = "https://github.com/ftelnov/weaver"
-repository = "https://github.com/ftelnov/weaver"
-license = "BSD-2-Clause"
-keywords = ["database", "http", "async", "web"]
-categories = [
-  "network-programming",
-  "asynchronous",
-  "web-programming::http-server",
-]
-authors = ["Fedor Telnov"]
-include = ["src/**/*", "README.md"]
+[workspace]
+resolver = "2"
+members = ["weaver", "tests"]
 
-[dependencies]
+[workspace.dependencies]
+once_cell = "1.20.2"
+tarantool = "6.1.0"
+tarantool-test = "0.3.2"
+thiserror = "1"
+weaver = { path = "weaver" }
