@@ -6,7 +6,7 @@ WORKDIR /app
 RUN dnf install -y epel-release && \
     dnf install -y --allowerasing git gcc cmake3 libarchive gcc-c++ wget curl \
     findutils unzip bash-completion openssl-devel libicu-devel && \
-    rpm --import https://download.picodata.io/tarantool-picodata/el/RPM-GPG-KEY-kdy && \
+    rpm --import https://download.picodata.io/tarantool-picodata/picodata.gpg.key && \
     dnf install -y https://download.picodata.io/tarantool-picodata/el/8/x86_64/picodata-release-1.1.0.11-1.el8.x86_64.rpm && \
     dnf install -y tarantool-picodata tarantool-picodata-devel && \
     dnf clean all
