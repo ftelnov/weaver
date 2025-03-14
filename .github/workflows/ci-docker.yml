@@ -5,6 +5,7 @@ on:
       version:
         type: string
         required: true
+        description: Every CI image should be versioned - your PR must update version in ci.yml as well.
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
