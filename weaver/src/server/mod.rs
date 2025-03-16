@@ -51,20 +51,22 @@ impl Server {
         &mut self,
         path: impl Into<String>,
         handler: impl RequestHandler + 'static,
-    ) -> &mut Self {
+    ) -> Result<&mut Self, Error> {
         let handler = Rc::new(handler);
-        self.router.insert(
-            path,
-            HandlerInternal(Box::new(move |request| {
-                let handler = handler.clone();
+        self.router
+            .insert(
+                path,
+                HandlerInternal(Box::new(move |request| {
+                    let handler = handler.clone();
 
-                Box::pin(async move { handler.handle_async(request).await })
-            })),
-        );
-        self
+                    Box::pin(async move { handler.handle_async(request).await })
+                })),
+            )
+            .map_err(|err| Error::InitFailed(err.to_string()))?;
+        Ok(self)
     }
 
-    pub fn defer(self) {
+    pub fn defer(self) -> Result<(), Error> {
         let fiber_name = self.cfg.fiber_name.unwrap_or_else(|| {
             format!(
                 "weaver_http_server_{}_{}",
@@ -97,7 +99,10 @@ impl Server {
                     "serve process is unexpectedly halted"
                 ))
             })
-            .defer_non_joinable();
+            .defer_non_joinable()
+            .map_err(|err| Error::InitFailed(format!("failed to create main fiber: {err}")))?;
+
+        Ok(())
     }
 }
 
@@ -146,21 +151,25 @@ impl HttpBody for Body {
 }
 
 #[derive(thiserror::Error, Debug, Clone)]
-enum Error {
+pub enum Error {
+    #[error("failed to init server: {}", .0)]
+    InitFailed(String),
     #[error("path isn't registered")]
     InvalidPath(#[from] matchit::MatchError),
 }
 
 impl Error {
-    fn code(&self) -> ErrorCode {
+    pub fn code(&self) -> ErrorCode {
         match self {
-            Error::InvalidPath(_) => 1,
+            Error::InitFailed(_) => 1,
+            Error::InvalidPath(_) => 2,
         }
     }
 
-    fn status_code(&self) -> StatusCode {
+    pub fn status_code(&self) -> StatusCode {
         match self {
             Error::InvalidPath(_) => StatusCode::NOT_FOUND,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }
@@ -185,4 +194,4 @@ struct ErrorResponse {
     details: String,
 }
 
-type ErrorCode = u32;
+pub type ErrorCode = u32;

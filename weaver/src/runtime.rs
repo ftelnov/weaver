@@ -42,7 +42,8 @@ where
         fiber::Builder::new()
             .name(&self.child_name)
             .func_async(fut)
-            .defer_non_joinable();
+            .defer_non_joinable()
+            .expect("weaver can't create helper fiber");
     }
 }
 
