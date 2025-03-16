@@ -59,7 +59,12 @@ impl Server {
                 HandlerInternal(Box::new(move |request| {
                     let handler = handler.clone();
 
-                    Box::pin(async move { handler.handle_async(request).await })
+                    Box::pin(async move {
+                        handler
+                            .handle_async(request)
+                            .await
+                            .map_err(|err| Error::UserHandler(err.to_string()))
+                    })
                 })),
             )
             .map_err(|err| Error::InitFailed(err.to_string()))?;
@@ -67,6 +72,14 @@ impl Server {
     }
 
     pub fn defer(self) -> Result<(), Error> {
+        self.into_fiber()
+            .defer_non_joinable()
+            .map_err(|err| Error::InitFailed(format!("failed to create main fiber: {err}")))?;
+
+        Ok(())
+    }
+
+    pub fn into_fiber(self) -> fiber::Builder<impl FnOnce() -> std::result::Result<(), Error>> {
         let fiber_name = self.cfg.fiber_name.unwrap_or_else(|| {
             format!(
                 "weaver_http_server_{}_{}",
@@ -82,7 +95,11 @@ impl Server {
         fiber::Builder::new()
             .name(&fiber_name)
             .func_async(async move {
-                let stream = TcpStream::connect_async(&bind.host, bind.port).await?;
+                let stream = TcpStream::connect_async(&bind.host, bind.port)
+                    .await
+                    .map_err(|err| {
+                        Error::InitFailed(format!("failed to bind to needed address: {err}"))
+                    })?;
                 let io = TarantoolAsyncIO::new(stream);
 
                 let service = service_fn(move |request| {
@@ -93,16 +110,14 @@ impl Server {
                 hyper::server::conn::http2::Builder::new(TarantoolHyperExecutor::new(fiber_name))
                     .serve_connection(io, service)
                     .await
-                    .context("error serving connection")?;
+                    .map_err(|err| {
+                        Error::ServeExited(format!("serve process resulted in error: {err}"))
+                    })?;
 
-                Result::<(), anyhow::Error>::Err(anyhow::anyhow!(
-                    "serve process is unexpectedly halted"
+                Result::<(), Error>::Err(Error::ServeExited(
+                    "serve process is unexpectedly halted".into(),
                 ))
             })
-            .defer_non_joinable()
-            .map_err(|err| Error::InitFailed(format!("failed to create main fiber: {err}")))?;
-
-        Ok(())
     }
 }
 
@@ -119,14 +134,16 @@ impl ServerProcessor {
 
 #[async_trait::async_trait]
 pub trait RequestHandler {
-    async fn handle_async(&self, request: Request<Incoming>) -> Result<Response<Body>, Error>;
+    type Error: Display;
+    async fn handle_async(&self, request: Request<Incoming>)
+        -> Result<Response<Body>, Self::Error>;
 }
 
 struct HandlerInternal(
     Box<dyn Fn(Request<Incoming>) -> Pin<Box<dyn Future<Output = Result<Response<Body>, Error>>>>>,
 );
 
-struct Body {
+pub struct Body {
     data: Option<Bytes>,
 }
 
@@ -152,46 +169,12 @@ impl HttpBody for Body {
 
 #[derive(thiserror::Error, Debug, Clone)]
 pub enum Error {
+    #[error("user handler resulted in error: {}", .0)]
+    UserHandler(String),
     #[error("failed to init server: {}", .0)]
     InitFailed(String),
+    #[error("server unexpectedly exited from serving: {}", .0)]
+    ServeExited(String),
     #[error("path isn't registered")]
     InvalidPath(#[from] matchit::MatchError),
 }
-
-impl Error {
-    pub fn code(&self) -> ErrorCode {
-        match self {
-            Error::InitFailed(_) => 1,
-            Error::InvalidPath(_) => 2,
-        }
-    }
-
-    pub fn status_code(&self) -> StatusCode {
-        match self {
-            Error::InvalidPath(_) => StatusCode::NOT_FOUND,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
-        }
-    }
-}
-
-impl From<Error> for Response<Body> {
-    fn from(err: Error) -> Self {
-        let mut response = Self::new(Body::from(
-            serde_json::to_string(&ErrorResponse {
-                code: err.code(),
-                details: err.to_string(),
-            })
-            .expect("error serialization should never fail"),
-        ));
-        *response.status_mut() = err.status_code();
-        response
-    }
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct ErrorResponse {
-    code: ErrorCode,
-    details: String,
-}
-
-pub type ErrorCode = u32;
