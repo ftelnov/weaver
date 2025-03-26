@@ -11,6 +11,8 @@ async-trait = "0.1"
 hyper = { version = "1.6", features = ["server", "http1", "http2"] }
 http-body-util = "0.1"
 anyhow = "1"
+tarolog = "0.2"
+log = "0.4"
 
 [lib]
 crate-type = ["lib", "cdylib"]

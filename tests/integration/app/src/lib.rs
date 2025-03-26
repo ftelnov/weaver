@@ -1,11 +1,18 @@
+
 use http_body_util::BodyExt as _;
 use hyper::{body::Incoming, Request, Response};
+use tarantool::log::TarantoolLogger;
 use weaver::server::{
-    BindParams, Body, Error, RequestHandler, Server, ServerConfig, ServerConfigBuilder,
+    BindParams, Body, RequestHandler, Server, ServerConfigBuilder,
 };
 
 #[tarantool::proc]
 pub fn run_server(_input: String) -> Result<(), String> {
+    tarolog::set_default_logger_format(tarolog::Format::JsonTarantool(None));
+    static LOGGER: TarantoolLogger = TarantoolLogger::new();
+
+    log::set_logger(&LOGGER).unwrap();
+    log::set_max_level(log::LevelFilter::Debug);
     _run_server()
 }
 
@@ -13,13 +20,13 @@ fn _run_server() -> Result<(), String> {
     let mut server = Server::new(
         ServerConfigBuilder::default()
             .bind(BindParams {
-                host: "localhost".into(),
+                host: "127.0.0.1".into(),
                 port: 18989,
             })
             .build()
             .unwrap(),
     );
-    server.route("/mirror", MirrorEndpoint).unwrap();
+    server.route("/echo", MirrorEndpoint).unwrap();
     server.into_fiber().start().unwrap().join().unwrap();
     Ok(())
 }

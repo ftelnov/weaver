@@ -1,21 +1,17 @@
-import asyncio
-import logging
 import socket
-import threading
 import time
-from contextlib import closing
-
-import httpx
 
 
-def wait_server_alive(server):
+def wait_server_alive(host, port):
     begin = time.time()
     timeout = 10
-    client = httpx.Client()
     while (time.time() - begin) < timeout:
         try:
-            client.get(server, timeout=3)
+            s = socket.create_connection((host, port), timeout=timeout)
+            s.close()
             return
-        except Exception:
+        except Exception as exc:
+            print(f"Unable to connect to {host}:{port}: {exc}")
+            time.sleep(1)
             pass
-    raise Exception(f"Server at {server} didn't spin up properly")
+    raise Exception(f"Server at {host}:{port} didn't spin up properly")

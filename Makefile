@@ -13,7 +13,7 @@ build:
 	cargo build --all
 
 test: build
-	tarantool-test -p $(TEST_LIB)
+	pytest
 
 lint:
 	cargo clippy
@@ -23,4 +23,3 @@ publish-dry-run:
 
 publish:
 	cargo publish -p weaver --all-features
-

@@ -2,20 +2,16 @@
 //! Various runtimes for hyper
 use std::{
     fmt::Display,
-    future::Future,
     mem::MaybeUninit,
     pin::Pin,
     task::{Context, Poll},
-    time::{Duration, Instant},
 };
 
 use futures_io::{AsyncRead, AsyncWrite};
-use hyper::rt::{Sleep, Timer};
 use pin_project_lite::pin_project;
 use tarantool::{
     fiber::{
         self,
-        r#async::futures::{AsyncReadExt, AsyncWriteExt},
     },
     network::client::tcp::TcpStream,
 };

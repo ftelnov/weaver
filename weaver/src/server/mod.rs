@@ -1,23 +1,23 @@
 use std::{
     fmt::Display,
     future::Future,
-    net::{IpAddr, SocketAddr, TcpListener},
-    pin::{pin, Pin},
+    pin::Pin,
     rc::Rc,
     task::{Context, Poll},
 };
 
-use anyhow::Context as _;
 use derive_builder::Builder;
-use http::response::Parts;
 use hyper::{
     body::{Body as HttpBody, Bytes, Frame, Incoming},
     service::service_fn,
-    Request, Response, StatusCode,
+    Request, Response,
 };
+use log::{debug, error, info, trace};
 use matchit::Router;
-use serde::Serialize;
-use tarantool::{fiber, network::client::tcp::TcpStream};
+use tarantool::{
+    fiber::{self},
+    network::tcp::{listener::TcpListener, stream::TcpStream},
+};
 
 use crate::runtime::{TarantoolAsyncIO, TarantoolHyperExecutor};
 
@@ -88,48 +88,89 @@ impl Server {
         });
         let bind = self.cfg.bind;
 
-        let processor = Rc::new(ServerProcessor {
-            router: self.router,
-        });
+        let processor = ServerProcessor {
+            state: Rc::new(ServerState {
+                router: self.router,
+                server_name: fiber_name.clone(),
+            }),
+        };
 
         fiber::Builder::new()
             .name(&fiber_name)
             .func_async(async move {
-                let stream = TcpStream::connect_async(&bind.host, bind.port)
-                    .await
-                    .map_err(|err| {
-                        Error::InitFailed(format!("failed to bind to needed address: {err}"))
-                    })?;
-                let io = TarantoolAsyncIO::new(stream);
+                let listener = TcpListener::bind(&bind.host, bind.port).map_err(|err| {
+                    Error::InitFailed(format!("failed to bind to needed address: {err}"))
+                })?;
+                info!(
+                    "Server bind to address {}:{} successfully",
+                    bind.host, bind.port
+                );
 
-                let service = service_fn(move |request| {
+                loop {
+                    let stream = listener
+                        .accept()
+                        .await
+                        .map_err(|err| Error::ConnectionError(err.to_string()))?;
+
+                    debug!("Server accepted new connection");
                     let processor = processor.clone();
-                    async move { processor.process_request(request).await }
-                });
-
-                hyper::server::conn::http2::Builder::new(TarantoolHyperExecutor::new(fiber_name))
-                    .serve_connection(io, service)
-                    .await
-                    .map_err(|err| {
-                        Error::ServeExited(format!("serve process resulted in error: {err}"))
-                    })?;
-
-                Result::<(), Error>::Err(Error::ServeExited(
-                    "serve process is unexpectedly halted".into(),
-                ))
+                    fiber::Builder::new()
+                        .name(&fiber_name)
+                        .func_async(async move {
+                            if let Err(err) = processor.process_single_stream(stream).await {
+                                error!("Failure during single connection stream processing: {err}")
+                            }
+                        })
+                        .defer_non_joinable()
+                        .map_err(|err| {
+                            Error::ConnectionError(format!(
+                                "unable to spawn fiber for connection handle: {err}"
+                            ))
+                        })?;
+                }
             })
     }
 }
 
+#[derive(Clone)]
 struct ServerProcessor {
-    router: Router<HandlerInternal>,
+    state: Rc<ServerState>,
 }
 
 impl ServerProcessor {
+    async fn process_single_stream(&self, stream: TcpStream) -> Result<(), Error> {
+        let io = TarantoolAsyncIO::new(stream);
+        let processor = self.clone();
+
+        let service = service_fn(move |request| {
+            trace!(ctx = processor.log_ctx(); "accepted request: {request:?}");
+            let processor = processor.clone();
+            async move { processor.process_request(request).await }
+        });
+
+        hyper_util::server::conn::auto::Builder::new(TarantoolHyperExecutor::new(
+            &self.state.server_name,
+        ))
+        .serve_connection(io, service)
+        .await
+        .map_err(|err| Error::ServeExited(format!("serve process resulted in error: {err}")))?;
+        debug!(ctx = self.log_ctx(); "connection is finished");
+        Ok(())
+    }
+
     async fn process_request(&self, request: Request<Incoming>) -> Result<Response<Body>, Error> {
-        let handler = self.router.at(request.uri().path())?;
+        let handler = self.state.router.at(request.uri().path())?;
         (handler.value.0)(request).await
     }
+
+    fn log_ctx(&self) -> &str {
+        &self.state.server_name
+    }
+}
+
+struct ServerState {
+    router: Router<HandlerInternal>,
+    server_name: String,
 }
 
 #[async_trait::async_trait]
@@ -140,6 +181,7 @@ pub trait RequestHandler {
 }
 
 struct HandlerInternal(
+    #[allow(clippy::type_complexity)]
     Box<dyn Fn(Request<Incoming>) -> Pin<Box<dyn Future<Output = Result<Response<Body>, Error>>>>>,
 );
 
@@ -175,6 +217,8 @@ pub enum Error {
     InitFailed(String),
     #[error("server unexpectedly exited from serving: {}", .0)]
     ServeExited(String),
+    #[error("unexpected error occurred with connection: {}", .0)]
+    ConnectionError(String),
     #[error("path isn't registered")]
     InvalidPath(#[from] matchit::MatchError),
 }
