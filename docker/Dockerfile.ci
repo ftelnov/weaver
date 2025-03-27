@@ -4,7 +4,7 @@ WORKDIR /app
 
 # install needed packages
 RUN dnf install -y epel-release && \
-    dnf install -y --allowerasing git gcc cmake3 libarchive gcc-c++ wget curl \
+    dnf install -y --allowerasing git gcc cmake3 libarchive gcc-c++ wget curl python3.12 python3.12-pip \
     findutils unzip bash-completion openssl-devel libicu-devel && \
     curl -L https://download.picodata.io/tarantool-picodata/install.sh | bash && \
     yum install -y tarantool-picodata tarantool-picodata-devel && \
@@ -14,5 +14,5 @@ RUN dnf install -y epel-release && \
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain 1.85 -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-RUN cargo install --features="bin" tarantool-test --version "^0.3"
-
+RUN cargo install --features="bin" tarantool-test --version "^0.3" && \
+    cargo install tarantool-runner --version "^0.1.0"
