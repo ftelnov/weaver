@@ -4,7 +4,7 @@ WORKDIR /app
 
 # install needed packages
 RUN dnf install -y epel-release && \
-    dnf install -y --allowerasing git gcc cmake3 libarchive gcc-c++ wget curl \
+    dnf install -y --allowerasing git gcc cmake3 libarchive gcc-c++ wget curl python3.12 python3.12-pip \
     findutils unzip bash-completion openssl-devel libicu-devel && \
     curl -L https://download.picodata.io/tarantool-picodata/install.sh | bash && \
     yum install -y tarantool-picodata tarantool-picodata-devel && \
