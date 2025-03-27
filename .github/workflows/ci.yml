@@ -21,4 +21,4 @@ jobs:
       - name: Lint
         run: make lint
       - name: Test
-        run: make test
+        run: source .venv/bin/activate && make test
