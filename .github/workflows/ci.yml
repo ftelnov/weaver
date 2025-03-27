@@ -16,6 +16,8 @@ jobs:
       options: --user root
     steps:
       - uses: actions/checkout@v4
+      - name: Install Test Env
+        run: python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.dev.txt
       - name: Lint
         run: make lint
       - name: Test
