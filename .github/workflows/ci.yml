@@ -9,13 +9,28 @@ env:
   IMAGE_NAME: ${{ github.repository }}
   CARGO_TERM_COLOR: always
 jobs:
-  test:
+  test-linux:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/ftelnov/weaver:0.1.1
       options: --user root
     steps:
       - uses: actions/checkout@v4
+      - name: Install Test Env
+        run: python3.12 -m venv .venv && source .venv/bin/activate && pip install -r requirements.dev.txt
+      - name: Lint
+        run: make lint
+      - name: Test
+        run: source .venv/bin/activate && make test
+  test-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-all-crates: true
+      - name: Install deps
+        run: bash ./helpers/ci_macos_install.sh
       - name: Install Test Env
         run: python3.12 -m venv .venv && source .venv/bin/activate && pip install -r requirements.dev.txt
       - name: Lint
