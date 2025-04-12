@@ -1150,7 +1150,6 @@ dependencies = [
 [[package]]
 name = "tarantool"
 version = "7.0.0"
-source = "git+https://github.com/ftelnov/tarantool-module.git?branch=feat%2Fasync-tcp-listener#93763c52ea32fdff7bcd40c71137234ac5a52ba7"
 dependencies = [
  "async-trait",
  "base64",
@@ -1171,7 +1170,7 @@ dependencies = [
  "serde_bytes",
  "serde_json",
  "sha-1",
- "tarantool-proc 3.2.0 (git+https://github.com/ftelnov/tarantool-module.git?branch=feat%2Fasync-tcp-listener)",
+ "tarantool-proc 3.2.0",
  "tester",
  "thiserror 1.0.69",
  "time",
@@ -1183,8 +1182,6 @@ dependencies = [
 [[package]]
 name = "tarantool-proc"
 version = "3.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ccb355f2f6ff18bfa0bfad5630230a9c672754e182f30c0dab64d0fe51fc2591"
 dependencies = [
  "darling 0.14.4",
  "proc-macro-error",
@@ -1196,7 +1193,8 @@ dependencies = [
 [[package]]
 name = "tarantool-proc"
 version = "3.2.0"
-source = "git+https://github.com/ftelnov/tarantool-module.git?branch=feat%2Fasync-tcp-listener#93763c52ea32fdff7bcd40c71137234ac5a52ba7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ccb355f2f6ff18bfa0bfad5630230a9c672754e182f30c0dab64d0fe51fc2591"
 dependencies = [
  "darling 0.14.4",
  "proc-macro-error",
@@ -1327,19 +1325,16 @@ dependencies = [
 [[package]]
 name = "tlua"
 version = "5.0.0"
-source = "git+https://github.com/ftelnov/tarantool-module.git?branch=feat%2Fasync-tcp-listener#93763c52ea32fdff7bcd40c71137234ac5a52ba7"
 dependencies = [
  "libc",
  "serde",
  "thiserror 1.0.69",
- "tlua-derive 0.2.1 (git+https://github.com/ftelnov/tarantool-module.git?branch=feat%2Fasync-tcp-listener)",
+ "tlua-derive 0.2.1",
 ]
 
 [[package]]
 name = "tlua-derive"
 version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "899e5490e17089fee6c49ceb15d62deee6c20561b3fa9bb9b12c7ed99ecc1214"
 dependencies = [
  "proc-macro2 1.0.94",
  "quote 1.0.40",
@@ -1349,7 +1344,8 @@ dependencies = [
 [[package]]
 name = "tlua-derive"
 version = "0.2.1"
-source = "git+https://github.com/ftelnov/tarantool-module.git?branch=feat%2Fasync-tcp-listener#93763c52ea32fdff7bcd40c71137234ac5a52ba7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "899e5490e17089fee6c49ceb15d62deee6c20561b3fa9bb9b12c7ed99ecc1214"
 dependencies = [
  "proc-macro2 1.0.94",
  "quote 1.0.40",
