@@ -1,9 +1,8 @@
-
 use http_body_util::BodyExt as _;
-use hyper::{body::Incoming, Request, Response};
 use tarantool::log::TarantoolLogger;
-use weaver::server::{
-    BindParams, Body, RequestHandler, Server, ServerConfigBuilder,
+use weaver::{
+    frontend::{handler::Handler, request::RawRequest},
+    server::{BindParams, Body, Response, Server, ServerConfigBuilder},
 };
 
 #[tarantool::proc]
@@ -26,23 +25,23 @@ fn _run_server() -> Result<(), String> {
             .build()
             .unwrap(),
     );
-    server.route("/echo", MirrorEndpoint).unwrap();
+    server
+        .route("/echo", Handler::new(mirror_endpoint))
+        .unwrap();
     server.into_fiber().start().unwrap().join().unwrap();
     Ok(())
 }
 
-struct MirrorEndpoint;
-
-#[async_trait::async_trait]
-impl RequestHandler for MirrorEndpoint {
-    type Error = anyhow::Error;
-
-    async fn handle_async(
-        &self,
-        request: Request<Incoming>,
-    ) -> Result<Response<Body>, Self::Error> {
-        let content = request.collect().await?.to_bytes();
-        let body = Body::from(String::from_utf8(content.to_vec())?);
-        Ok(Response::new(body))
-    }
+async fn mirror_endpoint(RawRequest(mut request): RawRequest) -> Result<Response, String> {
+    let content = request
+        .body_mut()
+        .collect()
+        .await
+        .map_err(|err| format!("failed to extract body: {err}"))?
+        .to_bytes();
+    let body = Body::from(
+        String::from_utf8(content.to_vec())
+            .map_err(|err| format!("failed to convert body to string: {err}"))?,
+    );
+    Ok(Response::new(body))
 }

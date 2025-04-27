@@ -779,6 +779,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
 
 [[package]]
+name = "mime"
+version = "0.3.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
+
+[[package]]
 name = "miniz_oxide"
 version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1150,6 +1156,7 @@ dependencies = [
 [[package]]
 name = "tarantool"
 version = "7.0.0"
+source = "git+https://github.com/ftelnov/tarantool-module.git?branch=feat%2Fasync-tcp-listener#4f76c55ac75777fe6465a068dd87787afcc721c7"
 dependencies = [
  "async-trait",
  "base64",
@@ -1170,7 +1177,7 @@ dependencies = [
  "serde_bytes",
  "serde_json",
  "sha-1",
- "tarantool-proc 3.2.0",
+ "tarantool-proc 3.2.0 (git+https://github.com/ftelnov/tarantool-module.git?branch=feat%2Fasync-tcp-listener)",
  "tester",
  "thiserror 1.0.69",
  "time",
@@ -1182,6 +1189,8 @@ dependencies = [
 [[package]]
 name = "tarantool-proc"
 version = "3.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ccb355f2f6ff18bfa0bfad5630230a9c672754e182f30c0dab64d0fe51fc2591"
 dependencies = [
  "darling 0.14.4",
  "proc-macro-error",
@@ -1193,8 +1202,7 @@ dependencies = [
 [[package]]
 name = "tarantool-proc"
 version = "3.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ccb355f2f6ff18bfa0bfad5630230a9c672754e182f30c0dab64d0fe51fc2591"
+source = "git+https://github.com/ftelnov/tarantool-module.git?branch=feat%2Fasync-tcp-listener#4f76c55ac75777fe6465a068dd87787afcc721c7"
 dependencies = [
  "darling 0.14.4",
  "proc-macro-error",
@@ -1325,16 +1333,19 @@ dependencies = [
 [[package]]
 name = "tlua"
 version = "5.0.0"
+source = "git+https://github.com/ftelnov/tarantool-module.git?branch=feat%2Fasync-tcp-listener#4f76c55ac75777fe6465a068dd87787afcc721c7"
 dependencies = [
  "libc",
  "serde",
  "thiserror 1.0.69",
- "tlua-derive 0.2.1",
+ "tlua-derive 0.2.1 (git+https://github.com/ftelnov/tarantool-module.git?branch=feat%2Fasync-tcp-listener)",
 ]
 
 [[package]]
 name = "tlua-derive"
 version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "899e5490e17089fee6c49ceb15d62deee6c20561b3fa9bb9b12c7ed99ecc1214"
 dependencies = [
  "proc-macro2 1.0.94",
  "quote 1.0.40",
@@ -1344,8 +1355,7 @@ dependencies = [
 [[package]]
 name = "tlua-derive"
 version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "899e5490e17089fee6c49ceb15d62deee6c20561b3fa9bb9b12c7ed99ecc1214"
+source = "git+https://github.com/ftelnov/tarantool-module.git?branch=feat%2Fasync-tcp-listener#4f76c55ac75777fe6465a068dd87787afcc721c7"
 dependencies = [
  "proc-macro2 1.0.94",
  "quote 1.0.40",
@@ -1507,13 +1517,17 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bytes",
  "derive_builder",
  "futures-io",
  "http",
+ "http-body-util",
  "hyper",
  "hyper-util",
  "log",
  "matchit",
+ "mime",
+ "paste",
  "pin-project-lite",
  "serde",
  "serde_json",
