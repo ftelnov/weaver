@@ -1,6 +1,7 @@
 use std::{
-    fmt::Display,
+    collections::HashMap,
     future::Future,
+    ops::{Deref, DerefMut},
     pin::Pin,
     rc::Rc,
     task::{Context, Poll},
@@ -10,7 +11,7 @@ use derive_builder::Builder;
 use hyper::{
     body::{Body as HttpBody, Bytes, Frame, Incoming},
     service::service_fn,
-    Request, Response,
+    Request as HyperRequest, Response as HyperResponse,
 };
 use log::{debug, error, info, trace};
 use matchit::Router;
@@ -59,12 +60,7 @@ impl Server {
                 HandlerInternal(Box::new(move |request| {
                     let handler = handler.clone();
 
-                    Box::pin(async move {
-                        handler
-                            .handle_async(request)
-                            .await
-                            .map_err(|err| Error::UserHandler(err.to_string()))
-                    })
+                    Box::pin(async move { handler.handle_async(request).await })
                 })),
             )
             .map_err(|err| Error::InitFailed(err.to_string()))?;
@@ -158,9 +154,19 @@ impl ServerProcessor {
         Ok(())
     }
 
-    async fn process_request(&self, request: Request<Incoming>) -> Result<Response<Body>, Error> {
-        let handler = self.state.router.at(request.uri().path())?;
-        (handler.value.0)(request).await
+    async fn process_request(&self, request: HyperRequest<Incoming>) -> Result<Response, Error> {
+        let path = request.uri().path().to_owned();
+        let handler = self.state.router.at(&path)?;
+        let params: HashMap<String, String> = handler
+            .params
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
+        Ok((handler.value.0)(Request {
+            content: request,
+            params,
+        })
+        .await)
     }
 
     fn log_ctx(&self) -> &str {
@@ -173,20 +179,46 @@ struct ServerState {
     server_name: String,
 }
 
-#[async_trait::async_trait]
+pub struct Request {
+    pub content: HyperRequest<Incoming>,
+    pub params: HashMap<String, String>,
+}
+
+impl Deref for Request {
+    type Target = HyperRequest<Incoming>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.content
+    }
+}
+
+impl DerefMut for Request {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.content
+    }
+}
+
+pub type Response = HyperResponse<Body>;
+
 pub trait RequestHandler {
-    type Error: Display;
-    async fn handle_async(&self, request: Request<Incoming>)
-        -> Result<Response<Body>, Self::Error>;
+    fn handle_async(&self, request: Request) -> impl Future<Output = Response>;
 }
 
 struct HandlerInternal(
     #[allow(clippy::type_complexity)]
-    Box<dyn Fn(Request<Incoming>) -> Pin<Box<dyn Future<Output = Result<Response<Body>, Error>>>>>,
+    Box<dyn Fn(Request) -> Pin<Box<dyn Future<Output = Response>>>>,
 );
 
 pub struct Body {
     data: Option<Bytes>,
+}
+
+impl Body {
+    pub fn empty() -> Self {
+        Self {
+            data: Some(vec![].into()),
+        }
+    }
 }
 
 impl From<String> for Body {
@@ -194,6 +226,12 @@ impl From<String> for Body {
         Body {
             data: Some(a.into()),
         }
+    }
+}
+
+impl From<Bytes> for Body {
+    fn from(a: Bytes) -> Self {
+        Body { data: Some(a) }
     }
 }
 
