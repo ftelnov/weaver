@@ -4,7 +4,7 @@ use tarantool::{fiber, log::TarantoolLogger};
 use weaver::{
     frontend::{
         handler::Handler,
-        request::{json::JsonBody, RawRequest},
+        request::{json::JsonBody, path::Path, RawRequest},
         response::json::JsonResponse,
     },
     server::{BindParams, Body, Response, Server, ServerConfigBuilder},
@@ -36,6 +36,12 @@ fn _run_server() -> Result<(), String> {
     server.route("/json", Handler::new(json_endpoint)).unwrap();
     server
         .route("/long-running", Handler::new(long_running_endpoint))
+        .unwrap();
+    server
+        .route(
+            "/path/{id}/content/{another_field}/{final_field}",
+            Handler::new(path_endpoint),
+        )
         .unwrap();
     server.into_fiber().start().unwrap().join().unwrap();
     Ok(())
@@ -92,4 +98,8 @@ async fn long_running_endpoint(
         handle_start: start,
         handle_end: end,
     }))
+}
+
+async fn path_endpoint(Path(path): Path) -> Result<JsonResponse<serde_json::Value>, String> {
+    Ok(JsonResponse(serde_json::json!(path)))
 }

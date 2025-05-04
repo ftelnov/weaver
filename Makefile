@@ -12,7 +12,10 @@ TEST_LIB=./target/debug/libtests.$(LIB_EXT)
 build:
 	cargo build --all
 
-test: build
+doctest:
+	cargo test --doc
+
+test: build doctest
 	pytest
 
 lint:

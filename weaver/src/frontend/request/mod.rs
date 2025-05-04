@@ -6,6 +6,7 @@ use std::{
 };
 
 pub mod json;
+pub mod path;
 
 pub struct Request(Option<server::Request>);
 
@@ -38,9 +39,7 @@ impl DerefMut for Request {
 pub trait FromRequest {
     type Rejection: IntoResponse;
 
-    fn from_request(
-        request: &mut Request,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>>
+    fn from_request(request: &mut Request) -> impl Future<Output = Result<Self, Self::Rejection>>
     where
         Self: Sized;
 }
