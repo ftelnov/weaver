@@ -44,9 +44,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "chrono",
  "http-body-util",
  "hyper",
  "log",
+ "serde",
+ "serde_json",
  "tarantool 7.0.0",
  "tarantool-test",
  "tarolog",
@@ -182,6 +185,7 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
+ "serde",
  "wasm-bindgen",
  "windows-link",
 ]
