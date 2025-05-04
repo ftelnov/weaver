@@ -22,8 +22,9 @@ use tarantool::{
 
 use crate::runtime::{TarantoolAsyncIO, TarantoolHyperExecutor};
 
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Clone, Builder, Default)]
 pub struct ServerConfig {
+    #[builder(default)]
     pub bind: BindParams,
     #[builder(default)]
     pub fiber_name: Option<String>,
@@ -35,6 +36,14 @@ pub struct BindParams {
     pub port: u16,
 }
 
+impl Default for BindParams {
+    fn default() -> Self {
+        Self {
+            host: "127.0.0.1".to_string(),
+            port: 8000,
+        }
+    }
+}
 pub struct Server {
     cfg: ServerConfig,
     router: Router<HandlerInternal>,
@@ -155,8 +164,13 @@ impl ServerProcessor {
     }
 
     async fn process_request(&self, request: HyperRequest<Incoming>) -> Result<Response, Error> {
-        let path = request.uri().path().to_owned();
-        let handler = self.state.router.at(&path)?;
+        let uri_path = request.uri().path();
+        let path = uri_path.to_owned();
+        let handler = self
+            .state
+            .router
+            .at(uri_path)
+            .map_err(|err| Error::InvalidPath { path, error: err })?;
         let params: HashMap<String, String> = handler
             .params
             .iter()
@@ -257,6 +271,10 @@ pub enum Error {
     ServeExited(String),
     #[error("unexpected error occurred with connection: {}", .0)]
     ConnectionError(String),
-    #[error("path isn't registered")]
-    InvalidPath(#[from] matchit::MatchError),
+    #[error("path {path} isn't registered")]
+    InvalidPath {
+        path: String,
+        #[source]
+        error: matchit::MatchError,
+    },
 }

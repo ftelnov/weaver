@@ -55,3 +55,11 @@ async def test_interleaved_requests(test_app):
         assert result.request == {"hello": "world"}
         assert result.handle_start > 0
         assert 2000 > result.handle_end - result.handle_start >= 1000
+
+
+@pytest.mark.asyncio
+async def test_path_endpoint(test_app):
+    client = httpx.AsyncClient(base_url=test_app)
+    response = await client.get("/path/123/content/456/789")
+    assert response.status_code == 200, f"invalid response: {response}"
+    assert response.json() == {"id": "123", "another_field": "456", "final_field": "789"}
