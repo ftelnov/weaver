@@ -3,9 +3,7 @@ use crate::server::Response;
 use bytes::{BufMut as _, BytesMut};
 use http::{header, HeaderMap, HeaderValue, StatusCode};
 
-pub struct JsonResponse<T> {
-    data: T,
-}
+pub struct JsonResponse<T>(pub T);
 
 impl<T: serde::Serialize> IntoResponse for JsonResponse<T> {
     async fn into_response(self) -> Response {
@@ -13,7 +11,7 @@ impl<T: serde::Serialize> IntoResponse for JsonResponse<T> {
         // https://docs.rs/serde_json/1.0.82/src/serde_json/ser.rs.html#2189
         let mut buf = BytesMut::with_capacity(128).writer();
 
-        match serde_json::to_writer(&mut buf, &self.data) {
+        match serde_json::to_writer(&mut buf, &self.0) {
             Ok(()) => {
                 let mut headers = HeaderMap::new();
                 headers.insert(
