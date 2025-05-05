@@ -21,7 +21,6 @@ include = ["src/**/*", "README.md"]
 hyper = { version = "1.6", features = ["server", "http1", "http2"] }
 hyper-util = { version = "0.1", features = ["server", "http1", "http2"] }
 http-body-util = "0.1"
-anyhow = "1"
 derive_builder = "0.20"
 tarantool = { workspace = true, features = ["picodata", "test"] }
 futures-io = "0.3"

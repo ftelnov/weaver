@@ -10,9 +10,7 @@ use std::{
 use futures_io::{AsyncRead, AsyncWrite};
 use pin_project_lite::pin_project;
 use tarantool::{
-    fiber::{
-        self,
-    },
+    fiber::{self},
     network::client::tcp::TcpStream,
 };
 

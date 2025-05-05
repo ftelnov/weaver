@@ -1,6 +1,14 @@
 [workspace]
 resolver = "2"
-members = ["weaver", "tests/integration/app"]
+members = [
+    "weaver",
+    "tests/integration/app",
+
+    # Benchmark facilities
+    "tests/bench/weaver_impl/app",
+    "tests/bench/shors_impl/app",
+    "tests/bench/helper",
+]
 
 [workspace.dependencies]
 once_cell = "1.20.2"

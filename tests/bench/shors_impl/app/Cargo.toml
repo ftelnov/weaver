@@ -1,19 +1,18 @@
 [package]
-name = "integration_suite_app"
+name = "shors_bench"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 tarantool = { workspace = true, features = ["picodata", "test"] }
-weaver = { workspace = true }
 async-trait = "0.1"
-hyper = { version = "1.6", features = ["server", "http1", "http2"] }
-http-body-util = "0.1"
 tarolog = "0.2"
 log = "0.4"
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"] }
+shors = { version = "0.12" }
+bench_helper = { path = "../../helper" }
 
 [lib]
 crate-type = ["lib", "cdylib"]

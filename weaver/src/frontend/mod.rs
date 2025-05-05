@@ -1,4 +1,4 @@
-mod macro_impl;
 pub mod handler;
+mod macro_impl;
 pub mod request;
 pub mod response;

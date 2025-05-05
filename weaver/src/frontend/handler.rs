@@ -8,6 +8,9 @@ pub struct Handler<F, Fut, Resp, Args> {
 
 impl<F, Fut, Resp, Args> Handler<F, Fut, Resp, Args> {
     pub fn new(func: F) -> Self {
-        Handler { func, phantom: PhantomData }
+        Handler {
+            func,
+            phantom: PhantomData,
+        }
     }
 }
