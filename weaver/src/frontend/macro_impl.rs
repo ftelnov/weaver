@@ -8,6 +8,7 @@ macro_rules! impl_request_handler {
         paste::paste! {
         mod [<impl_request_handler_ $($arg:snake)_*>] {
             use $crate::frontend::response::{IntoResponse};
+            #[allow(unused_imports)]
             use $crate::frontend::request::FromRequest;
 
             #[allow(unused_parens)]
@@ -19,6 +20,7 @@ macro_rules! impl_request_handler {
                 $( $arg: FromRequest, )*
             {
                 async fn handle_async(&self, request: $crate::server::Request) -> $crate::server::Response {
+                    #[allow(unused)]
                     let mut request = $crate::frontend::request::Request::new(request);
                     $(
                         #[allow(non_snake_case)]
@@ -36,6 +38,7 @@ macro_rules! impl_request_handler {
 }
 
 // Generate impls for up to 12 arguments
+impl_request_handler!();
 impl_request_handler!(X);
 impl_request_handler!(X, Y);
 impl_request_handler!(X, Y, Z);

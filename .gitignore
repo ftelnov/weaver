@@ -1,3 +1,6 @@
 /target
 *venv*
 *pycache*
+.rocks
+/data
+*DS_Store*

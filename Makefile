@@ -12,6 +12,9 @@ TEST_LIB=./target/debug/libtests.$(LIB_EXT)
 build:
 	cargo build --all
 
+build-release:
+	cargo build --release --all
+
 doctest:
 	cargo test --doc
 
@@ -19,6 +22,7 @@ test: build doctest
 	pytest
 
 lint:
+	cargo fmt --check
 	cargo clippy
 
 publish-dry-run:
@@ -26,3 +30,10 @@ publish-dry-run:
 
 publish:
 	cargo publish -p weaver --all-features
+
+bench: build-release
+	echo "Running weaver"
+	./tests/bench/exec.sh weaver 19000
+	sleep 10
+	echo "Running shors"
+	./tests/bench/exec.sh shors 19001

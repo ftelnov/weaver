@@ -13,7 +13,7 @@ def test_app():
             "tarantool-runner",
             "run",
             "-p",
-            "./target/debug/libapp.so",
+            "./target/debug/libintegration_suite_app.so",
             "-e",
             "run_server",
         ]
