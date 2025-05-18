@@ -1,11 +1,10 @@
-use super::response::IntoResponse;
+use super::response::ResponsePart;
 use crate::server;
 use std::{
     future::Future,
     ops::{Deref, DerefMut},
 };
 
-pub mod json;
 pub mod path;
 
 pub struct Request(Option<server::Request>);
@@ -37,7 +36,7 @@ impl DerefMut for Request {
 }
 
 pub trait FromRequest {
-    type Rejection: IntoResponse;
+    type Rejection: ResponsePart;
 
     fn from_request(request: &mut Request) -> impl Future<Output = Result<Self, Self::Rejection>>
     where

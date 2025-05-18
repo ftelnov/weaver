@@ -19,7 +19,7 @@ doctest:
 	cargo test --doc
 
 test: build doctest
-	pytest
+	./tests/integration/run_tests.sh
 
 lint:
 	cargo fmt --check

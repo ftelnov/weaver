@@ -223,6 +223,7 @@ struct HandlerInternal(
     Box<dyn Fn(Request) -> Pin<Box<dyn Future<Output = Response>>>>,
 );
 
+#[derive(Debug, Clone)]
 pub struct Body {
     data: Option<Bytes>,
 }

@@ -1,11 +1,13 @@
 use http_body_util::BodyExt as _;
+use hyper::{header::HeaderValue, HeaderMap, StatusCode};
 use std::time::Duration;
 use tarantool::{fiber, log::TarantoolLogger};
 use weaver::{
     frontend::{
         handler::Handler,
-        request::{json::JsonBody, path::Path, RawRequest},
-        response::json::JsonResponse,
+        json::Json,
+        request::{path::Path, RawRequest},
+        response::{Extend, ResponsePart},
     },
     server::{BindParams, Body, Response, Server, ServerConfigBuilder},
 };
@@ -35,6 +37,9 @@ fn _run_server() -> Result<(), String> {
         .unwrap();
     server.route("/json", Handler::new(json_endpoint)).unwrap();
     server
+        .route("/extend", Handler::new(extend_endpoint))
+        .unwrap();
+    server
         .route("/long-running", Handler::new(long_running_endpoint))
         .unwrap();
     server
@@ -61,10 +66,34 @@ async fn mirror_endpoint(RawRequest(mut request): RawRequest) -> Result<Response
     Ok(Response::new(body))
 }
 
-async fn json_endpoint(
-    JsonBody(value): JsonBody<serde_json::Value>,
-) -> Result<JsonResponse<serde_json::Value>, String> {
-    Ok(JsonResponse(value))
+async fn json_endpoint(Json(value): Json<serde_json::Value>) -> impl ResponsePart {
+    Json(value)
+}
+
+/// Demonstrates how to use [Extend] to merge response parts.
+async fn extend_endpoint(
+    Json(value): Json<serde_json::Value>,
+) -> Result<impl ResponsePart, String> {
+    let mut first_headers = HeaderMap::new();
+    first_headers.insert("X-Header-1", "header-1".parse().unwrap());
+    first_headers.insert("X-Header-2", "header-2".parse().unwrap());
+
+    let mut second_headers = HeaderMap::new();
+    second_headers.insert("X-Header-1", "header-1-2".parse().unwrap());
+    second_headers.insert("X-Header-3", "header-3".parse().unwrap());
+    second_headers.insert("X-Header-4", "header-4".parse().unwrap());
+
+    Ok((
+        StatusCode::CREATED,
+        first_headers,
+        Json(value),
+        Extend(second_headers),
+        ("X-Header-5", "header-5".parse().unwrap()),
+        [
+            ("X-Header-6", HeaderValue::from_static("header-6")),
+            ("X-Header-4", HeaderValue::from_static("header-4-1")),
+        ],
+    ))
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -88,18 +117,18 @@ where
 }
 
 async fn long_running_endpoint(
-    JsonBody(value): JsonBody<serde_json::Value>,
-) -> Result<JsonResponse<LongRunResponse>, String> {
+    Json(value): Json<serde_json::Value>,
+) -> Result<Json<LongRunResponse>, String> {
     let start = chrono::Utc::now();
     fiber::sleep(Duration::from_secs(1));
     let end = chrono::Utc::now();
-    Ok(JsonResponse(LongRunResponse {
+    Ok(Json(LongRunResponse {
         request: value,
         handle_start: start,
         handle_end: end,
     }))
 }
 
-async fn path_endpoint(Path(path): Path) -> Result<JsonResponse<serde_json::Value>, String> {
-    Ok(JsonResponse(serde_json::json!(path)))
+async fn path_endpoint(Path(path): Path) -> Result<Json<serde_json::Value>, String> {
+    Ok(Json(serde_json::json!(path)))
 }
