@@ -1,5 +1,5 @@
 /// Macro to implement RequestHandler for async functions with up to 12 arguments
-/// Each argument must implement FromRequest, and the return type must implement IntoResponse.
+/// Each argument must implement FromRequest, and the return type must implement ResponsePart.
 #[macro_export]
 macro_rules! impl_request_handler {
     [
@@ -7,7 +7,8 @@ macro_rules! impl_request_handler {
     ] => {
         paste::paste! {
         mod [<impl_request_handler_ $($arg:snake)_*>] {
-            use $crate::frontend::response::{IntoResponse};
+            use $crate::server::Body;
+            use $crate::frontend::response::{ResponsePart};
             #[allow(unused_imports)]
             use $crate::frontend::request::FromRequest;
 
@@ -16,21 +17,31 @@ macro_rules! impl_request_handler {
             where
                 F: Fn($($arg),*) -> Fut,
                 Fut: std::future::Future<Output = Resp>,
-                Resp: IntoResponse,
+                Resp: ResponsePart,
                 $( $arg: FromRequest, )*
             {
                 async fn handle_async(&self, request: $crate::server::Request) -> $crate::server::Response {
                     #[allow(unused)]
                     let mut request = $crate::frontend::request::Request::new(request);
+
+                    // Apply request extractors.
                     $(
                         #[allow(non_snake_case)]
                         let $arg = match <$arg as FromRequest>::from_request(&mut request).await {
                             Ok(val) => val,
-                            Err(rej) => return rej.into_response().await,
+                            Err(rej) => {
+                                let mut response = $crate::server::Response::new(Body::empty());
+                                rej.apply(&mut response).await;
+                                return response;
+                            },
                         };
                     )*
-                    let resp = (self.func)($($arg),*).await;
-                    resp.into_response().await
+
+                    // Apply response parts.
+                    let mut response = $crate::server::Response::new(Body::empty());
+                    let parts = (self.func)($($arg),*).await;
+                    parts.apply(&mut response).await;
+                    response
                 }
             }
         }

@@ -3,10 +3,12 @@ import httpx
 import pytest
 from pydantic import BaseModel
 
+ENDPOINT = "http://localhost:18989"
+
 
 @pytest.mark.asyncio
-async def test_echo_endpoint(test_app):
-    client = httpx.AsyncClient(base_url=test_app)
+async def test_echo_endpoint():
+    client = httpx.AsyncClient(base_url=ENDPOINT)
 
     response = await client.get("/echo")
     assert response.status_code == 200, f"invalid response: {response}"
@@ -19,8 +21,8 @@ async def test_echo_endpoint(test_app):
 
 
 @pytest.mark.asyncio
-async def test_json_endpoint(test_app):
-    client = httpx.AsyncClient(base_url=test_app)
+async def test_json_endpoint():
+    client = httpx.AsyncClient(base_url=ENDPOINT)
     content = {"hello": {"message": ["world"]}}
 
     response = await client.post("/json", json=content)
@@ -30,14 +32,14 @@ async def test_json_endpoint(test_app):
 
 
 @pytest.mark.asyncio
-async def test_interleaved_requests(test_app):
+async def test_interleaved_requests():
     class LongRunningResponse(BaseModel):
         request: dict
         handle_start: int
         handle_end: int
 
     async def do_request() -> LongRunningResponse:
-        client = httpx.AsyncClient(base_url=test_app)
+        client = httpx.AsyncClient(base_url=ENDPOINT)
         response = await client.post("/long-running", json={"hello": "world"})
         assert response.status_code == 200, f"invalid response: {response}"
         return LongRunningResponse(**response.json())
@@ -58,8 +60,30 @@ async def test_interleaved_requests(test_app):
 
 
 @pytest.mark.asyncio
-async def test_path_endpoint(test_app):
-    client = httpx.AsyncClient(base_url=test_app)
+async def test_path_endpoint():
+    client = httpx.AsyncClient(base_url=ENDPOINT)
     response = await client.get("/path/123/content/456/789")
     assert response.status_code == 200, f"invalid response: {response}"
-    assert response.json() == {"id": "123", "another_field": "456", "final_field": "789"}
+    assert response.headers["content-type"] == "application/json"
+    assert response.json() == {
+        "id": "123",
+        "another_field": "456",
+        "final_field": "789",
+    }
+
+
+@pytest.mark.asyncio
+async def test_extend_endpoint():
+    client = httpx.AsyncClient(base_url=ENDPOINT)
+    response = await client.post("/extend", json={"hello": "world"})
+    assert response.status_code == 201, f"invalid response: {response}"
+    assert response.headers["content-type"] == "application/json"
+
+    assert response.headers["x-header-1"] == "header-1-2"
+    assert response.headers["x-header-2"] == "header-2"
+    assert response.headers["x-header-3"] == "header-3"
+    assert response.headers["x-header-4"] == "header-4-1"
+    assert response.headers["x-header-5"] == "header-5"
+    assert response.headers["x-header-6"] == "header-6"
+
+    assert response.json() == {"hello": "world"}

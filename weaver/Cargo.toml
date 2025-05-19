@@ -31,6 +31,8 @@ http = "1"
 paste = "1"
 bytes = "1"
 mime = "0.3"
+either = "1"
+itertools = "0.14"
 
 serde = "1"
 serde_json = "1"
