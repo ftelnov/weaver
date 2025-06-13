@@ -1,10 +1,6 @@
 use bench_helper::{HealthResponse, TestRequest, TestResponse};
 use weaver::{
-    frontend::{
-        handler::Handler,
-        request::{json::JsonBody, path::Path},
-        response::json::JsonResponse,
-    },
+    frontend::{extras::json::Json, handler::HandlerFn, request::path::Path},
     server::{BindParams, Server, ServerConfigBuilder},
 };
 
@@ -28,25 +24,25 @@ fn _run_server() -> Result<(), String> {
     server
         .route(
             "/test/{param_a}/subcommand/{param_b}",
-            Handler::new(test_endpoint),
+            HandlerFn::new(test_endpoint),
         )
         .unwrap();
     server
-        .route("/health", Handler::new(health_endpoint))
+        .route("/health", HandlerFn::new(health_endpoint))
         .unwrap();
     server.into_fiber().start().unwrap().join().unwrap();
     Ok(())
 }
 
-async fn health_endpoint() -> Result<JsonResponse<HealthResponse>, String> {
-    Ok(JsonResponse(HealthResponse::default()))
+async fn health_endpoint() -> Result<Json<HealthResponse>, String> {
+    Ok(Json(HealthResponse::default()))
 }
 
 async fn test_endpoint(
-    JsonBody(value): JsonBody<TestRequest>,
+    Json(value): Json<TestRequest>,
     Path(path): Path,
-) -> Result<JsonResponse<TestResponse>, String> {
-    Ok(JsonResponse(TestResponse {
+) -> Result<Json<TestResponse>, String> {
+    Ok(Json(TestResponse {
         request: value,
         path,
     }))

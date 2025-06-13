@@ -9,9 +9,10 @@ PORT=$PORT tarantool-runner run -p ./target/release/lib"${TARGET}"_bench.so -e r
 task_pid=$!
 
 cleanup() {
-  echo "Cleaning up… killing PID $task_pid"
-  kill -9 "$task_pid" 2>/dev/null || true
+  echo "Cleaning up… killing PID'n'kids $task_pid"
+  pkill -TERM -P $task_pid
 }
+
 trap cleanup EXIT INT TERM
 
 HEALTH_URL="http://localhost:$PORT/health"
