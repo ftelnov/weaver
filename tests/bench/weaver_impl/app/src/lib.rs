@@ -1,6 +1,6 @@
 use bench_helper::{HealthResponse, TestRequest, TestResponse};
 use weaver::{
-    frontend::{handler::Handler, json::Json, request::path::Path},
+    frontend::{extras::json::Json, handler::HandlerFn, request::path::Path},
     server::{BindParams, Server, ServerConfigBuilder},
 };
 
@@ -24,11 +24,11 @@ fn _run_server() -> Result<(), String> {
     server
         .route(
             "/test/{param_a}/subcommand/{param_b}",
-            Handler::new(test_endpoint),
+            HandlerFn::new(test_endpoint),
         )
         .unwrap();
     server
-        .route("/health", Handler::new(health_endpoint))
+        .route("/health", HandlerFn::new(health_endpoint))
         .unwrap();
     server.into_fiber().start().unwrap().join().unwrap();
     Ok(())

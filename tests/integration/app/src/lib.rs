@@ -4,13 +4,15 @@ use std::time::Duration;
 use tarantool::{fiber, log::TarantoolLogger};
 use weaver::{
     frontend::{
-        handler::Handler,
-        json::Json,
-        request::{path::Path, RawRequest},
+        extras::json::Json,
+        handler::HandlerFn,
+        request::{path::Path, Request},
         response::{Extend, ResponsePart},
     },
-    server::{BindParams, Body, Response, Server, ServerConfigBuilder},
+    server::{BindParams, Body, Server, ServerConfigBuilder},
 };
+
+pub mod middleware;
 
 #[tarantool::proc]
 pub fn run_server(_input: String) -> Result<(), String> {
@@ -33,26 +35,32 @@ fn _run_server() -> Result<(), String> {
             .unwrap(),
     );
     server
-        .route("/echo", Handler::new(mirror_endpoint))
-        .unwrap();
-    server.route("/json", Handler::new(json_endpoint)).unwrap();
-    server
-        .route("/extend", Handler::new(extend_endpoint))
+        .route("/echo", HandlerFn::new(echo_endpoint))
         .unwrap();
     server
-        .route("/long-running", Handler::new(long_running_endpoint))
+        .route("/json", HandlerFn::new(json_endpoint))
+        .unwrap();
+    server
+        .route("/extend", HandlerFn::new(extend_endpoint))
+        .unwrap();
+    server
+        .route("/long-running", HandlerFn::new(long_running_endpoint))
         .unwrap();
     server
         .route(
             "/path/{id}/content/{another_field}/{final_field}",
-            Handler::new(path_endpoint),
+            HandlerFn::new(path_endpoint),
         )
         .unwrap();
+
+    server.group(middleware::simple::group()).unwrap();
+    server.group(middleware::layer::group()).unwrap();
+
     server.into_fiber().start().unwrap().join().unwrap();
     Ok(())
 }
 
-async fn mirror_endpoint(RawRequest(mut request): RawRequest) -> Result<Response, String> {
+async fn echo_endpoint(mut request: Request) -> Result<impl ResponsePart, String> {
     let content = request
         .body_mut()
         .collect()
@@ -63,7 +71,7 @@ async fn mirror_endpoint(RawRequest(mut request): RawRequest) -> Result<Response
         String::from_utf8(content.to_vec())
             .map_err(|err| format!("failed to convert body to string: {err}"))?,
     );
-    Ok(Response::new(body))
+    Ok(body)
 }
 
 async fn json_endpoint(Json(value): Json<serde_json::Value>) -> impl ResponsePart {

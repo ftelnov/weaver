@@ -87,3 +87,62 @@ async def test_extend_endpoint():
     assert response.headers["x-header-6"] == "header-6"
 
     assert response.json() == {"hello": "world"}
+
+
+@pytest.mark.asyncio
+async def test_counter_middleware():
+    client = httpx.AsyncClient(base_url=ENDPOINT)
+
+    response = await client.post(
+        "/counter_protected/echo",
+        json={"hello": "world"},
+        headers={"X-Add-Value": "30"},
+    )
+    assert response.status_code == 200, f"invalid response: {response}"
+    assert response.json() == {"hello": "world"}
+
+    response = await client.post(
+        "/counter_protected/json",
+        json={"hello": "world"},
+        headers={"X-Add-Value": "30"},
+    )
+    assert response.status_code == 200, f"invalid response: {response}"
+    assert response.headers["content-type"] == "application/json"
+    assert response.json() == {"hello": "world"}
+
+    response = await client.post(
+        "/counter_protected/echo",
+        json={"hello": "world"},
+        headers={"X-Add-Value": "50"},
+    )
+    assert response.status_code == 429, f"invalid response: {response}"
+    assert response.json() == {"error": "Counter limit exceeded"}
+
+
+@pytest.mark.asyncio
+async def test_middleware_chaining():
+    client = httpx.AsyncClient(base_url=ENDPOINT)
+
+    response = await client.post("/just_second/echo", json={"hello": "world"})
+    assert response.status_code == 200, f"invalid response: {response}"
+    assert response.json() == {"counter": 2}
+
+    response = await client.post(
+        "/just_second/echo",
+        json={"hello": "world"},
+        headers={"X-Must-Be-Unset": "1"},
+    )
+    assert response.status_code == 400, f"invalid response: {response}"
+    assert response.json() == {"error": "Header must be unset"}
+
+    response = await client.post("/combined/echo", json={"hello": "world"})
+    assert response.status_code == 200, f"invalid response: {response}"
+    assert response.json() == {"counter": 3}
+
+    response = await client.post(
+        "/combined/echo",
+        json={"hello": "world"},
+        headers={"X-Must-Be-Unset": "1"},
+    )
+    assert response.status_code == 200, f"invalid response: {response}"
+    assert response.json() == {"counter": 3}

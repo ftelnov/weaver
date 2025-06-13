@@ -1,4 +1,4 @@
-use super::{
+use super::super::{
     request::{FromRequest, Request},
     response::ResponsePart,
 };

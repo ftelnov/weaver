@@ -21,13 +21,16 @@ use tarantool::{
 };
 
 use crate::runtime::{TarantoolAsyncIO, TarantoolHyperExecutor};
+use http::StatusCode;
 
 #[derive(Debug, Clone, Builder, Default)]
 pub struct ServerConfig {
     #[builder(default)]
     pub bind: BindParams,
+    /// Server name, used for logging and fiber name.
+    /// If not provided, default name with host and port will be used.
     #[builder(default)]
-    pub fiber_name: Option<String>,
+    pub name: Option<String>,
 }
 
 #[derive(Debug, Clone, Builder)]
@@ -46,13 +49,19 @@ impl Default for BindParams {
 }
 pub struct Server {
     cfg: ServerConfig,
+    name: String,
     router: Router<HandlerInternal>,
 }
 
 impl Server {
     pub fn new(cfg: ServerConfig) -> Self {
+        let name = cfg
+            .name
+            .clone()
+            .unwrap_or_else(|| format!("weaver_http_server_{}_{}", cfg.bind.host, cfg.bind.port));
         Self {
             cfg,
+            name,
             router: Router::new(),
         }
     }
@@ -63,9 +72,10 @@ impl Server {
         handler: impl RequestHandler + 'static,
     ) -> Result<&mut Self, Error> {
         let handler = Rc::new(handler);
+        let path = path.into();
         self.router
             .insert(
-                path,
+                &path,
                 HandlerInternal(Box::new(move |request| {
                     let handler = handler.clone();
 
@@ -73,6 +83,7 @@ impl Server {
                 })),
             )
             .map_err(|err| Error::InitFailed(err.to_string()))?;
+        debug!(ctx = self.log_ctx(); "registered handler for path: {path}");
         Ok(self)
     }
 
@@ -85,13 +96,8 @@ impl Server {
     }
 
     pub fn into_fiber(self) -> fiber::Builder<impl FnOnce() -> std::result::Result<(), Error>> {
-        let fiber_name = self.cfg.fiber_name.unwrap_or_else(|| {
-            format!(
-                "weaver_http_server_{}_{}",
-                self.cfg.bind.host, self.cfg.bind.port
-            )
-        });
         let bind = self.cfg.bind;
+        let fiber_name = self.name;
 
         let processor = ServerProcessor {
             state: Rc::new(ServerState {
@@ -135,6 +141,10 @@ impl Server {
                 }
             })
     }
+
+    fn log_ctx(&self) -> &str {
+        &self.name
+    }
 }
 
 #[derive(Clone)]
@@ -150,7 +160,12 @@ impl ServerProcessor {
         let service = service_fn(move |request| {
             trace!(ctx = processor.log_ctx(); "accepted request: {request:?}");
             let processor = processor.clone();
-            async move { processor.process_request(request).await }
+            async move {
+                processor
+                    .process_request(request)
+                    .await
+                    .or_else(|err| processor.handle_error(err))
+            }
         });
 
         hyper_util::server::conn::auto::Builder::new(TarantoolHyperExecutor::new(
@@ -158,7 +173,12 @@ impl ServerProcessor {
         ))
         .serve_connection(io, service)
         .await
-        .map_err(|err| Error::ServeExited(format!("serve process resulted in error: {err}")))?;
+        .map_err(|err| {
+            Error::ServeExited(format!(
+                "serve process resulted in error: {}",
+                error_with_causes(err)
+            ))
+        })?;
         debug!(ctx = self.log_ctx(); "connection is finished");
         Ok(())
     }
@@ -181,6 +201,18 @@ impl ServerProcessor {
             params,
         })
         .await)
+    }
+
+    fn handle_error(&self, error: Error) -> Result<Response, Error> {
+        match error {
+            Error::InvalidPath { path, error } => {
+                let mut response = Response::new(Body::empty());
+                debug!(ctx = self.log_ctx(); "invalid path: {path}: {error}");
+                *response.status_mut() = StatusCode::NOT_FOUND;
+                Ok(response)
+            }
+            e => Err(e),
+        }
     }
 
     fn log_ctx(&self) -> &str {
@@ -216,6 +248,12 @@ pub type Response = HyperResponse<Body>;
 
 pub trait RequestHandler {
     fn handle_async(&self, request: Request) -> impl Future<Output = Response>;
+}
+
+impl<F: Future<Output = Response> + 'static, FN: Fn(Request) -> F> RequestHandler for FN {
+    fn handle_async(&self, request: Request) -> impl Future<Output = Response> {
+        (self)(request)
+    }
 }
 
 struct HandlerInternal(
@@ -264,8 +302,6 @@ impl HttpBody for Body {
 
 #[derive(thiserror::Error, Debug, Clone)]
 pub enum Error {
-    #[error("user handler resulted in error: {}", .0)]
-    UserHandler(String),
     #[error("failed to init server: {}", .0)]
     InitFailed(String),
     #[error("server unexpectedly exited from serving: {}", .0)]
@@ -278,4 +314,17 @@ pub enum Error {
         #[source]
         error: matchit::MatchError,
     },
+}
+
+/// Format error as a string with sources traversal.
+/// Mainly used for extreme cases - when failure is unexpected.
+fn error_with_causes(error: Box<dyn std::error::Error>) -> String {
+    let mut error: &dyn std::error::Error = &*error;
+    let mut result = error.to_string();
+    while let Some(source) = error.source() {
+        result.push_str(" -> ");
+        result.push_str(&source.to_string());
+        error = source;
+    }
+    result
 }

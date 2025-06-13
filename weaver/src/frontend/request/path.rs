@@ -2,18 +2,18 @@ use super::{FromRequest, Request};
 use std::{collections::HashMap, ops::DerefMut as _};
 
 /// Extracts path parameters from the request.
-/// It consumes the request, so it can be used only once.
+/// It consumes the request's path parameters, so future invocations will result in an empty map.
 ///
 /// Example:
 ///
 /// ```rust
 /// use weaver::frontend::request::path::Path;
-/// use weaver::frontend::handler::Handler;
+/// use weaver::frontend::handler::HandlerFn;
 /// use weaver::server::Server;
 ///
 /// fn main() {
 ///     let mut server = Server::new(Default::default());
-///     let handler = Handler::new(handler);
+///     let handler = HandlerFn::new(handler);
 ///     server.route("/path/{id}/content/{another_field}/{final_field}", handler);
 /// }
 ///
