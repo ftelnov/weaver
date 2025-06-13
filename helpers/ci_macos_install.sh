@@ -2,6 +2,7 @@
 set -e
 
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain 1.85 -y
+rustup component add rustfmt
 
 brew tap picodata/homebrew-tap
 brew install tarantool-picodata picodata

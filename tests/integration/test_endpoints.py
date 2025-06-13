@@ -138,11 +138,13 @@ async def test_middleware_chaining():
     response = await client.post("/combined/echo", json={"hello": "world"})
     assert response.status_code == 200, f"invalid response: {response}"
     assert response.json() == {"counter": 3}
+    assert response.headers["x-was-set"] == "false"
 
     response = await client.post(
         "/combined/echo",
         json={"hello": "world"},
         headers={"X-Must-Be-Unset": "1"},
     )
+    assert response.headers["x-was-set"] == "true"
     assert response.status_code == 200, f"invalid response: {response}"
     assert response.json() == {"counter": 3}

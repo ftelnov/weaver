@@ -5,8 +5,7 @@ edition = "2021"
 
 [dependencies]
 tarantool = { workspace = true, features = ["picodata", "test"] }
-weaver = { workspace = true }
-async-trait = "0.1"
+weaver = { workspace = true, features = ["json"] }
 hyper = { version = "1.6", features = ["server", "http1", "http2"] }
 http-body-util = "0.1"
 tarolog = "0.2"
