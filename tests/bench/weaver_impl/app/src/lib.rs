@@ -22,13 +22,13 @@ fn _run_server() -> Result<(), String> {
             .unwrap(),
     );
     server
-        .route(
+        .post(
             "/test/{param_a}/subcommand/{param_b}",
             HandlerFn::new(test_endpoint),
         )
         .unwrap();
     server
-        .route("/health", HandlerFn::new(health_endpoint))
+        .get("/health", HandlerFn::new(health_endpoint))
         .unwrap();
     server.into_fiber().start().unwrap().join().unwrap();
     Ok(())

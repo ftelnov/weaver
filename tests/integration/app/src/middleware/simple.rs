@@ -16,8 +16,9 @@ pub fn group() -> Group {
     Group::default()
         .path("/counter_protected")
         .middleware(MiddlewareFn::new(counter_middleware))
-        .route("/echo", HandlerFn::new(echo_endpoint))
-        .route("/json", HandlerFn::new(json_endpoint))
+        .post("/echo", HandlerFn::new(echo_endpoint))
+        .post("/json", HandlerFn::new(json_endpoint))
+        .take()
 }
 
 #[derive(Default)]
