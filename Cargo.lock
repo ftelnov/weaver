@@ -2017,6 +2017,7 @@ dependencies = [
  "pin-project-lite",
  "serde",
  "serde_json",
+ "smallvec",
  "tarantool 7.0.0",
  "thiserror 2.0.12",
 ]

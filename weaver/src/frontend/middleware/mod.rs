@@ -1,11 +1,11 @@
-use super::{handler::DynHandler, request::Request, response::ResponsePart};
-use crate::server::{Body, Response};
+use super::handler::DynHandler;
+use crate::server::{Request, Response};
 use std::{future::Future, marker::PhantomData, pin::Pin, rc::Rc};
 
 mod macro_impl;
 
 pub trait Middleware {
-    fn process(&self, request: &mut Request, next: Next) -> impl Future<Output = Response>;
+    fn process(&self, request: Request, next: Next) -> impl Future<Output = Response>;
 }
 
 /// Middleware takes [super::response::ResponsePart]
@@ -49,15 +49,9 @@ pub(crate) struct DynMiddleware(
 impl DynMiddleware {
     pub fn chain<M: Middleware + 'static>(self, middleware: M) -> Self {
         let middleware = Rc::new(middleware);
-        Self(Rc::new(move |mut request, next| {
+        Self(Rc::new(move |request, next| {
             let middleware = middleware.clone();
-            Box::pin(async move {
-                let middleware = middleware.process(&mut request, next);
-                let mut response = Response::new(Body::empty());
-                let parts = middleware.await;
-                parts.apply(&mut response).await;
-                response
-            })
+            Box::pin(async move { middleware.process(request, next).await })
         }))
     }
 
@@ -70,7 +64,7 @@ impl DynMiddleware {
                 let middleware = middleware.clone();
 
                 Box::pin(async move {
-                    let request = Request::from(request);
+                    let request = request;
                     middleware.call(request, next).await
                 })
             }),

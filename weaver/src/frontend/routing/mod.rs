@@ -1,4 +1,4 @@
-use super::{middleware::Middleware, request::Request};
+use super::middleware::Middleware;
 use crate::{
     frontend::{
         handler::DynHandler,
@@ -164,10 +164,7 @@ impl Server {
             let handler = move |request: crate::server::Request| {
                 let next = next.clone();
                 let middleware = middleware.clone();
-                async move {
-                    let request = Request::from(request);
-                    middleware.call(request, next).await
-                }
+                async move { middleware.call(request, next).await }
             };
             self.route(route.route, handler)?;
         }

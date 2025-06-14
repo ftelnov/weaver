@@ -1,10 +1,7 @@
 use serde::Serialize;
 use weaver::{
-    frontend::{
-        extras::json::Json, handler::HandlerFn, request::Request, response::ResponsePart,
-        routing::Group,
-    },
-    server::RouteBuilder,
+    frontend::{extras::json::Json, handler::HandlerFn, response::ResponsePart, routing::Group},
+    server::{Request, RouteBuilder},
 };
 
 /// Test that routing works in bucket manner - even if path clashes, method resolution still works.

@@ -58,8 +58,6 @@ pub struct Server {
     router: InnerRouter,
 }
 
-type InnerRouter = Router<SmallMap<http::Method, HandlerInternal>>;
-
 impl Server {
     pub fn new(cfg: ServerConfig) -> Self {
         let name = cfg
@@ -177,6 +175,16 @@ impl Server {
         &self.name
     }
 }
+
+/// Amount of standard HTTP methods.
+/// Used for preallocating buckets for request handlers.
+const STANDARD_METHODS_AMOUNT: usize = 9;
+
+/// Router with per-method buckets.
+///
+/// Buckets amount is preallocated for storing them inline.
+/// Constant is picked specifically to cover all standard methods.
+type InnerRouter = Router<SmallMap<http::Method, HandlerInternal, STANDARD_METHODS_AMOUNT>>;
 
 #[derive(Clone, Default, Builder, Debug)]
 pub struct Route {
@@ -412,6 +420,12 @@ impl Body {
         Self {
             data: Some(vec![].into()),
         }
+    }
+}
+
+impl Default for Body {
+    fn default() -> Self {
+        Self::empty()
     }
 }
 
