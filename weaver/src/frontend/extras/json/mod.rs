@@ -1,8 +1,8 @@
-use super::super::{
-    request::{FromRequest, Request},
-    response::ResponsePart,
+use super::super::{request::FromRequest, response::ResponsePart};
+use crate::{
+    frontend::response::error::InternalError,
+    server::{Request, Response},
 };
-use crate::{frontend::response::error::InternalError, server::Response};
 use bytes::{BufMut as _, BytesMut};
 use http::{header, HeaderValue};
 use http_body_util::BodyExt as _;

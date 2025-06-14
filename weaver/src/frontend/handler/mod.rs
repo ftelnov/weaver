@@ -1,5 +1,4 @@
-use super::request::Request;
-use crate::server::{RequestHandler, Response};
+use crate::server::{Request, RequestHandler, Response};
 use std::{future::Future, marker::PhantomData, pin::Pin, rc::Rc};
 
 mod macro_impl;
@@ -28,9 +27,9 @@ pub(crate) struct DynHandler(
 impl DynHandler {
     pub fn new(handler: impl RequestHandler + 'static) -> Self {
         let handler = Rc::new(handler);
-        DynHandler(Rc::new(move |mut request| {
+        DynHandler(Rc::new(move |request| {
             let handler = handler.clone();
-            Box::pin(async move { handler.handle_async(request.take()).await })
+            Box::pin(async move { handler.handle_async(request).await })
         }))
     }
 

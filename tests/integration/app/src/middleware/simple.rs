@@ -5,11 +5,11 @@ use weaver::{
         extras::json::Json,
         handler::HandlerFn,
         middleware::{MiddlewareFn, Next},
-        request::{FromRequest, Request},
+        request::FromRequest,
         response::ResponsePart,
         routing::Group,
     },
-    server::Response,
+    server::{Request, Response},
 };
 
 pub fn group() -> Group {
