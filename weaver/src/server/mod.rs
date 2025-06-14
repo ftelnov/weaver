@@ -50,6 +50,8 @@ impl Default for BindParams {
         }
     }
 }
+
+#[derive(Default)]
 pub struct Server {
     cfg: ServerConfig,
     name: String,
@@ -161,6 +163,14 @@ impl Server {
                         })?;
                 }
             })
+    }
+
+    /// Take ownership of the current server instance.
+    ///
+    /// Current server instance would be defaulted after this call.
+    /// Useful to finalize chained initialization.
+    pub fn take(&mut self) -> Self {
+        std::mem::take(self)
     }
 
     fn log_ctx(&self) -> &str {

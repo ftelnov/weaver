@@ -1,4 +1,5 @@
 /// Inline table for storing key-value pairs.
+#[derive(Debug, Clone)]
 pub struct SmallMap<K, V> {
     inner: Vec<(K, V)>,
 }
