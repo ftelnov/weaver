@@ -20,7 +20,10 @@ use tarantool::{
     network::tcp::{listener::TcpListener, stream::TcpStream},
 };
 
-use crate::runtime::{TarantoolAsyncIO, TarantoolHyperExecutor};
+use crate::{
+    runtime::{TarantoolAsyncIO, TarantoolHyperExecutor},
+    utils::SmallMap,
+};
 use http::StatusCode;
 
 #[derive(Debug, Clone, Builder, Default)]
@@ -50,8 +53,10 @@ impl Default for BindParams {
 pub struct Server {
     cfg: ServerConfig,
     name: String,
-    router: Router<HandlerInternal>,
+    router: InnerRouter,
 }
+
+type InnerRouter = Router<SmallMap<http::Method, HandlerInternal>>;
 
 impl Server {
     pub fn new(cfg: ServerConfig) -> Self {
@@ -66,24 +71,40 @@ impl Server {
         }
     }
 
+    /// Register new handler for given route.
+    /// If route is already registered(both method and path are occupied), error would be returned.
     pub fn route(
         &mut self,
-        path: impl Into<String>,
+        route: Route,
         handler: impl RequestHandler + 'static,
     ) -> Result<&mut Self, Error> {
         let handler = Rc::new(handler);
-        let path = path.into();
-        self.router
-            .insert(
-                &path,
-                HandlerInternal(Box::new(move |request| {
-                    let handler = handler.clone();
+        let mut bucket = self.router.remove(&route.path).unwrap_or_default();
 
-                    Box::pin(async move { handler.handle_async(request).await })
-                })),
-            )
-            .map_err(|err| Error::InitFailed(err.to_string()))?;
-        debug!(ctx = self.log_ctx(); "registered handler for path: {path}");
+        let existing = bucket.insert(
+            route.method.clone(),
+            HandlerInternal(Box::new(move |request| {
+                let handler = handler.clone();
+                Box::pin(async move { handler.handle_async(request).await })
+            })),
+        );
+
+        if existing.is_some() {
+            return Err(Error::RouteOccupied {
+                path: route.path,
+                method: route.method,
+            });
+        }
+
+        self.router
+            .insert(&route.path, bucket)
+            .map_err(|err| Error::InvalidPath {
+                path: route.path.clone(),
+                error: err,
+            })?;
+
+        debug!(ctx = self.log_ctx(); "registering handler for path: {route:?}");
+
         Ok(self)
     }
 
@@ -147,6 +168,107 @@ impl Server {
     }
 }
 
+#[derive(Clone, Default, Builder, Debug)]
+pub struct Route {
+    pub path: String,
+    #[builder(default)]
+    pub method: http::Method,
+}
+
+impl Route {
+    pub fn new(path: impl Into<String>, method: http::Method) -> Self {
+        Self {
+            path: path.into(),
+            method,
+        }
+    }
+
+    pub fn path(mut self, path: impl Into<String>) -> Self {
+        self.path = path.into();
+        self
+    }
+
+    pub fn method(mut self, method: http::Method) -> Self {
+        self.method = method;
+        self
+    }
+}
+
+/// Convenient methods for quick route registration.
+impl Server {
+    pub fn get(
+        &mut self,
+        path: impl Into<String>,
+        handler: impl RequestHandler + 'static,
+    ) -> Result<&mut Self, crate::server::Error> {
+        self.route(Route::new(path, http::Method::GET), handler)
+    }
+
+    pub fn post(
+        &mut self,
+        path: impl Into<String>,
+        handler: impl RequestHandler + 'static,
+    ) -> Result<&mut Self, crate::server::Error> {
+        self.route(Route::new(path, http::Method::POST), handler)
+    }
+
+    pub fn put(
+        &mut self,
+        path: impl Into<String>,
+        handler: impl RequestHandler + 'static,
+    ) -> Result<&mut Self, crate::server::Error> {
+        self.route(Route::new(path, http::Method::PUT), handler)
+    }
+
+    pub fn patch(
+        &mut self,
+        path: impl Into<String>,
+        handler: impl RequestHandler + 'static,
+    ) -> Result<&mut Self, crate::server::Error> {
+        self.route(Route::new(path, http::Method::PATCH), handler)
+    }
+
+    pub fn delete(
+        &mut self,
+        path: impl Into<String>,
+        handler: impl RequestHandler + 'static,
+    ) -> Result<&mut Self, crate::server::Error> {
+        self.route(Route::new(path, http::Method::DELETE), handler)
+    }
+
+    pub fn connect(
+        &mut self,
+        path: impl Into<String>,
+        handler: impl RequestHandler + 'static,
+    ) -> Result<&mut Self, crate::server::Error> {
+        self.route(Route::new(path, http::Method::CONNECT), handler)
+    }
+
+    pub fn head(
+        &mut self,
+        path: impl Into<String>,
+        handler: impl RequestHandler + 'static,
+    ) -> Result<&mut Self, crate::server::Error> {
+        self.route(Route::new(path, http::Method::HEAD), handler)
+    }
+
+    pub fn options(
+        &mut self,
+        path: impl Into<String>,
+        handler: impl RequestHandler + 'static,
+    ) -> Result<&mut Self, crate::server::Error> {
+        self.route(Route::new(path, http::Method::OPTIONS), handler)
+    }
+
+    pub fn trace(
+        &mut self,
+        path: impl Into<String>,
+        handler: impl RequestHandler + 'static,
+    ) -> Result<&mut Self, crate::server::Error> {
+        self.route(Route::new(path, http::Method::TRACE), handler)
+    }
+}
+
 #[derive(Clone)]
 struct ServerProcessor {
     state: Rc<ServerState>,
@@ -184,19 +306,24 @@ impl ServerProcessor {
     }
 
     async fn process_request(&self, request: HyperRequest<Incoming>) -> Result<Response, Error> {
-        let uri_path = request.uri().path();
-        let path = uri_path.to_owned();
-        let handler = self
+        let bucket = self
             .state
             .router
-            .at(uri_path)
-            .map_err(|err| Error::InvalidPath { path, error: err })?;
-        let params: HashMap<String, String> = handler
+            .at(request.uri().path())
+            .map_err(|_| Error::NotFound)?;
+
+        let handler = bucket
+            .value
+            .get(request.method())
+            .ok_or(Error::MethodNotAllowed)?;
+
+        let params: HashMap<String, String> = bucket
             .params
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect();
-        Ok((handler.value.0)(Request {
+
+        Ok((handler.0)(Request {
             content: request,
             params,
         })
@@ -205,10 +332,14 @@ impl ServerProcessor {
 
     fn handle_error(&self, error: Error) -> Result<Response, Error> {
         match error {
-            Error::InvalidPath { path, error } => {
-                let mut response = Response::new(Body::empty());
-                debug!(ctx = self.log_ctx(); "invalid path: {path}: {error}");
+            err @ Error::NotFound => {
+                let mut response = Response::new(err.to_string().into());
                 *response.status_mut() = StatusCode::NOT_FOUND;
+                Ok(response)
+            }
+            err @ Error::MethodNotAllowed => {
+                let mut response = Response::new(err.to_string().into());
+                *response.status_mut() = StatusCode::METHOD_NOT_ALLOWED;
                 Ok(response)
             }
             e => Err(e),
@@ -221,7 +352,7 @@ impl ServerProcessor {
 }
 
 struct ServerState {
-    router: Router<HandlerInternal>,
+    router: InnerRouter,
     server_name: String,
 }
 
@@ -308,12 +439,18 @@ pub enum Error {
     ServeExited(String),
     #[error("unexpected error occurred with connection: {}", .0)]
     ConnectionError(String),
-    #[error("path {path} isn't registered")]
+    #[error("404 Not Found")]
+    NotFound,
+    #[error("405 Method Not Allowed")]
+    MethodNotAllowed,
+    #[error("invalid path, unable to register: {path}: {error}")]
     InvalidPath {
         path: String,
         #[source]
-        error: matchit::MatchError,
+        error: matchit::InsertError,
     },
+    #[error("route {path} is already occupied for method {method}")]
+    RouteOccupied { path: String, method: http::Method },
 }
 
 /// Format error as a string with sources traversal.

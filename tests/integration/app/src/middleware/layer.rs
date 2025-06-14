@@ -25,7 +25,7 @@ pub fn group() -> Group {
             Group::default()
                 .path("/just_second")
                 .middleware(MiddlewareFn::new(second_middleware))
-                .route("/echo", HandlerFn::new(handler)),
+                .post("/echo", HandlerFn::new(handler)),
         )
         .unwrap()
         .group(
@@ -35,11 +35,12 @@ pub fn group() -> Group {
                 .group(
                     Group::default()
                         .middleware(MiddlewareFn::new(second_middleware))
-                        .route("/echo", HandlerFn::new(handler)),
+                        .post("/echo", HandlerFn::new(handler)),
                 )
                 .unwrap(),
         )
         .unwrap()
+        .take()
 }
 
 const MUST_BE_UNSET_HEADER: &str = "X-Must-Be-Unset";

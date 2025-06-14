@@ -12,6 +12,7 @@ use weaver::{
     server::{BindParams, Body, Server, ServerConfigBuilder},
 };
 
+pub mod methods;
 pub mod middleware;
 
 #[tarantool::proc]
@@ -34,20 +35,17 @@ fn _run_server() -> Result<(), String> {
             .build()
             .unwrap(),
     );
+    server.get("/echo", HandlerFn::new(echo_endpoint)).unwrap();
+    server.post("/echo", HandlerFn::new(echo_endpoint)).unwrap();
+    server.post("/json", HandlerFn::new(json_endpoint)).unwrap();
     server
-        .route("/echo", HandlerFn::new(echo_endpoint))
+        .post("/extend", HandlerFn::new(extend_endpoint))
         .unwrap();
     server
-        .route("/json", HandlerFn::new(json_endpoint))
+        .post("/long-running", HandlerFn::new(long_running_endpoint))
         .unwrap();
     server
-        .route("/extend", HandlerFn::new(extend_endpoint))
-        .unwrap();
-    server
-        .route("/long-running", HandlerFn::new(long_running_endpoint))
-        .unwrap();
-    server
-        .route(
+        .get(
             "/path/{id}/content/{another_field}/{final_field}",
             HandlerFn::new(path_endpoint),
         )
@@ -55,6 +53,7 @@ fn _run_server() -> Result<(), String> {
 
     server.group(middleware::simple::group()).unwrap();
     server.group(middleware::layer::group()).unwrap();
+    server.group(methods::group()).unwrap();
 
     server.into_fiber().start().unwrap().join().unwrap();
     Ok(())

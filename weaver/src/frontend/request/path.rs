@@ -14,7 +14,7 @@ use std::{collections::HashMap, ops::DerefMut as _};
 /// fn main() {
 ///     let mut server = Server::new(Default::default());
 ///     let handler = HandlerFn::new(handler);
-///     server.route("/path/{id}/content/{another_field}/{final_field}", handler);
+///     server.get("/path/{id}/content/{another_field}/{final_field}", handler);
 /// }
 ///
 /// async fn handler(Path(params): Path) -> String {

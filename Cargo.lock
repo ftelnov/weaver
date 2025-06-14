@@ -758,6 +758,7 @@ name = "integration_suite_app"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "http",
  "http-body-util",
  "hyper",
  "log",
