@@ -12,6 +12,7 @@ macro_rules! impl_request_handler {
                 #[allow(unused_imports)]
                 use $crate::frontend::request::FromRequest;
 
+                #[async_trait::async_trait(?Send)]
                 #[allow(unused_parens)]
                 impl<FN, Fut, Resp, $($arg),*> $crate::server::RequestHandler for $crate::frontend::handler::HandlerFn<FN, Fut, Resp, ($($arg),*)>
                 where
@@ -57,6 +58,7 @@ macro_rules! impl_request_handler {
                 use $crate::frontend::request::FromRequest;
                 use $crate::server::Request;
 
+                #[async_trait::async_trait(?Send)]
                 #[allow(unused_parens)]
                 impl<FN, Fut, Resp, $($arg),*> $crate::server::RequestHandler for $crate::frontend::handler::HandlerFn<FN, Fut, Resp, ($($arg,)* Request)>
                 where

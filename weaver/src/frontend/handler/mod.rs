@@ -1,5 +1,4 @@
-use crate::server::{Request, RequestHandler, Response};
-use std::{future::Future, marker::PhantomData, pin::Pin, rc::Rc};
+use std::marker::PhantomData;
 
 mod macro_impl;
 
@@ -15,25 +14,5 @@ impl<F, Fut, Resp, Args> HandlerFn<F, Fut, Resp, Args> {
             func,
             phantom: PhantomData,
         }
-    }
-}
-
-#[derive(Clone)]
-pub(crate) struct DynHandler(
-    #[allow(clippy::type_complexity)]
-    Rc<dyn Fn(Request) -> Pin<Box<dyn Future<Output = Response>>>>,
-);
-
-impl DynHandler {
-    pub fn new(handler: impl RequestHandler + 'static) -> Self {
-        let handler = Rc::new(handler);
-        DynHandler(Rc::new(move |request| {
-            let handler = handler.clone();
-            Box::pin(async move { handler.handle_async(request).await })
-        }))
-    }
-
-    pub async fn call(&self, request: Request) -> Response {
-        self.0(request).await
     }
 }

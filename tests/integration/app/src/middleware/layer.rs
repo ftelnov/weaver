@@ -40,6 +40,14 @@ pub fn group() -> Group {
                 .unwrap(),
         )
         .unwrap()
+        .group(
+            Group::default()
+                .path("/flat_combined")
+                .middleware(MiddlewareFn::new(first_middleware))
+                .middleware(MiddlewareFn::new(second_middleware))
+                .post("/echo", HandlerFn::new(handler)),
+        )
+        .unwrap()
         .take()
 }
 

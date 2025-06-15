@@ -51,7 +51,7 @@ impl Default for BindParams {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Server {
     cfg: ServerConfig,
     name: String,
@@ -76,18 +76,11 @@ impl Server {
     pub fn route(
         &mut self,
         route: Route,
-        handler: impl RequestHandler + 'static,
+        handler: impl Into<SharedRequestHandler>,
     ) -> Result<&mut Self, Error> {
-        let handler = Rc::new(handler);
+        let handler = handler.into();
         let mut bucket = self.router.remove(&route.path).unwrap_or_default();
-
-        let existing = bucket.insert(
-            route.method.clone(),
-            HandlerInternal(Box::new(move |request| {
-                let handler = handler.clone();
-                Box::pin(async move { handler.handle_async(request).await })
-            })),
-        );
+        let existing = bucket.insert(route.method.clone(), handler);
 
         if existing.is_some() {
             return Err(Error::RouteOccupied {
@@ -184,7 +177,7 @@ const STANDARD_METHODS_AMOUNT: usize = 9;
 ///
 /// Buckets amount is preallocated for storing them inline.
 /// Constant is picked specifically to cover all standard methods.
-type InnerRouter = Router<SmallMap<http::Method, HandlerInternal, STANDARD_METHODS_AMOUNT>>;
+type InnerRouter = Router<SmallMap<http::Method, SharedRequestHandler, STANDARD_METHODS_AMOUNT>>;
 
 #[derive(Clone, Default, Builder, Debug)]
 pub struct Route {
@@ -341,11 +334,12 @@ impl ServerProcessor {
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect();
 
-        Ok((handler.0)(Request {
-            content: request,
-            params,
-        })
-        .await)
+        Ok((handler.0)
+            .handle_async(Request {
+                content: request,
+                params,
+            })
+            .await)
     }
 
     fn handle_error(&self, error: Error) -> Result<Response, Error> {
@@ -395,20 +389,36 @@ impl DerefMut for Request {
 
 pub type Response = HyperResponse<Body>;
 
+#[async_trait::async_trait(?Send)]
 pub trait RequestHandler {
-    fn handle_async(&self, request: Request) -> impl Future<Output = Response>;
+    async fn handle_async(&self, request: Request) -> Response;
 }
 
+#[async_trait::async_trait(?Send)]
 impl<F: Future<Output = Response> + 'static, FN: Fn(Request) -> F> RequestHandler for FN {
-    fn handle_async(&self, request: Request) -> impl Future<Output = Response> {
-        (self)(request)
+    async fn handle_async(&self, request: Request) -> Response {
+        (self)(request).await
     }
 }
 
-struct HandlerInternal(
-    #[allow(clippy::type_complexity)]
-    Box<dyn Fn(Request) -> Pin<Box<dyn Future<Output = Response>>>>,
-);
+#[derive(Clone)]
+pub struct SharedRequestHandler(Rc<dyn RequestHandler>);
+
+impl SharedRequestHandler {
+    pub fn new(handler: impl RequestHandler + 'static) -> Self {
+        Self(Rc::new(handler))
+    }
+
+    pub fn as_handler(&self) -> &dyn RequestHandler {
+        &*self.0
+    }
+}
+
+impl<T: RequestHandler + 'static> From<T> for SharedRequestHandler {
+    fn from(handler: T) -> Self {
+        Self::new(handler)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Body {

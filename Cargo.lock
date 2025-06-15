@@ -2002,6 +2002,7 @@ dependencies = [
 name = "weaver"
 version = "0.0.0"
 dependencies = [
+ "async-trait",
  "bytes",
  "derive_builder",
  "either",

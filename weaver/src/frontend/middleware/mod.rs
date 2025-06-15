@@ -1,11 +1,11 @@
-use super::handler::DynHandler;
-use crate::server::{Request, Response};
-use std::{future::Future, marker::PhantomData, pin::Pin, rc::Rc};
+use crate::server::{Request, RequestHandler, Response, SharedRequestHandler};
+use std::{marker::PhantomData, rc::Rc};
 
 mod macro_impl;
 
+#[async_trait::async_trait(?Send)]
 pub trait Middleware {
-    fn process(&self, request: Request, next: Next) -> impl Future<Output = Response>;
+    async fn process(&self, request: Request, next: Next) -> Response;
 }
 
 /// Middleware takes [super::response::ResponsePart]
@@ -25,61 +25,83 @@ impl<F, Fut, Resp, Args> MiddlewareFn<F, Fut, Resp, Args> {
 
 #[derive(Clone)]
 pub struct Next {
-    handler: DynHandler,
+    handler: SharedRequestHandler,
 }
 
 impl Next {
     pub async fn call(&self, request: Request) -> Response {
-        self.handler.call(request).await
+        self.handler.as_handler().handle_async(request).await
     }
 }
 
-impl From<DynHandler> for Next {
-    fn from(handler: DynHandler) -> Self {
+impl From<SharedRequestHandler> for Next {
+    fn from(handler: SharedRequestHandler) -> Self {
         Next { handler }
     }
 }
 
-#[derive(Clone)]
-pub(crate) struct DynMiddleware(
-    #[allow(clippy::type_complexity)]
-    Rc<dyn Fn(Request, Next) -> Pin<Box<dyn Future<Output = Response>>>>,
-);
-
-impl DynMiddleware {
-    pub fn chain<M: Middleware + 'static>(self, middleware: M) -> Self {
-        let middleware = Rc::new(middleware);
-        Self(Rc::new(move |request, next| {
-            let middleware = middleware.clone();
-            Box::pin(async move { middleware.process(request, next).await })
-        }))
-    }
-
-    pub fn wrap(&self, next: Next) -> Next {
-        let middleware = self.clone();
-
-        Next {
-            handler: DynHandler::new(move |request: crate::server::Request| {
-                let next = next.clone();
-                let middleware = middleware.clone();
-
-                Box::pin(async move {
-                    let request = request;
-                    middleware.call(request, next).await
-                })
-            }),
-        }
-    }
-
-    pub async fn call(&self, request: Request, next: Next) -> Response {
-        self.0(request, next).await
+impl From<Next> for SharedRequestHandler {
+    fn from(next: Next) -> Self {
+        next.handler
     }
 }
 
-impl Default for DynMiddleware {
+#[derive(Clone)]
+pub struct SharedMiddleware(Rc<dyn Middleware>);
+
+impl SharedMiddleware {
+    pub fn new(middleware: impl Middleware + 'static) -> Self {
+        Self(Rc::new(middleware))
+    }
+
+    pub fn as_middleware(&self) -> &dyn Middleware {
+        &*self.0
+    }
+}
+
+impl<T: Middleware + 'static> From<T> for SharedMiddleware {
+    fn from(middleware: T) -> Self {
+        Self::new(middleware)
+    }
+}
+
+impl SharedMiddleware {
+    pub fn wrap(self, next: Next) -> Next {
+        struct Wrapper {
+            middleware: SharedMiddleware,
+            next: Next,
+        }
+
+        #[async_trait::async_trait(?Send)]
+        impl RequestHandler for Wrapper {
+            async fn handle_async(&self, request: Request) -> crate::server::Response {
+                self.middleware
+                    .as_middleware()
+                    .process(request, self.next.clone())
+                    .await
+            }
+        }
+
+        Next {
+            handler: SharedRequestHandler::new(Wrapper {
+                middleware: self,
+                next,
+            }),
+        }
+    }
+}
+
+impl Default for SharedMiddleware {
     fn default() -> Self {
-        Self(Rc::new(move |request, next| {
-            Box::pin(async move { next.call(request).await })
-        }))
+        struct DefaultMiddleware;
+
+        #[async_trait::async_trait(?Send)]
+        impl Middleware for DefaultMiddleware {
+            async fn process(&self, request: Request, next: Next) -> Response {
+                next.call(request).await
+            }
+        }
+
+        Self::new(DefaultMiddleware)
     }
 }

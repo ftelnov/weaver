@@ -15,10 +15,11 @@ macro_rules! impl_middleware {
                 use $crate::frontend::middleware::Next;
                 use $crate::server::Request;
 
+                #[async_trait::async_trait(?Send)]
                 #[allow(unused_parens)]
                 impl<FN, Fut, Resp, $($arg),*> $crate::frontend::middleware::Middleware for $crate::frontend::middleware::MiddlewareFn<FN, Fut, Resp, ($($arg),*)>
                 where
-                    FN: Fn($($arg,)* Next) -> Fut,
+                    FN: for<'a> Fn($($arg,)* Next) -> Fut,
                     Fut: std::future::Future<Output = Resp>,
                     Resp: ResponsePart,
                     $( $arg: FromRequest, )*
@@ -60,10 +61,11 @@ macro_rules! impl_middleware {
                 use $crate::frontend::middleware::Next;
                 use $crate::server::Request;
 
+                #[async_trait::async_trait(?Send)]
                 #[allow(unused_parens)]
                 impl<FN, Fut, Resp, $($arg),*> $crate::frontend::middleware::Middleware for $crate::frontend::middleware::MiddlewareFn<FN, Fut, Resp, ($($arg,)* Request)>
                 where
-                    FN: Fn($($arg,)* Request, Next) -> Fut,
+                    FN: for<'a> Fn($($arg,)* Request, Next) -> Fut,
                     Fut: std::future::Future<Output = Resp>,
                     Resp: ResponsePart,
                     $( $arg: FromRequest, )*
