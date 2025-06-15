@@ -1,16 +1,12 @@
-use super::{middleware::Middleware, request::Request};
 use crate::{
-    frontend::{
-        handler::DynHandler,
-        middleware::{DynMiddleware, Next},
-    },
-    server::{RequestHandler, Route, Server},
+    frontend::middleware::{Next, SharedMiddleware},
+    server::{RequestHandler, Route, Server, SharedRequestHandler},
 };
 
 #[derive(Clone)]
 pub struct Group {
     base_path: String,
-    middleware: DynMiddleware,
+    middlewares: Vec<SharedMiddleware>,
     routes: Vec<InnerRoute>,
 }
 
@@ -18,7 +14,7 @@ impl Group {
     pub fn new() -> Self {
         Self {
             base_path: String::new(),
-            middleware: Default::default(),
+            middlewares: Default::default(),
             routes: Vec::new(),
         }
     }
@@ -28,15 +24,15 @@ impl Group {
         self
     }
 
-    pub fn middleware(&mut self, middleware: impl Middleware + 'static) -> &mut Self {
-        self.middleware = std::mem::take(&mut self.middleware).chain(middleware);
+    pub fn middleware(&mut self, middleware: impl Into<SharedMiddleware>) -> &mut Self {
+        self.middlewares.push(middleware.into());
         self
     }
 
-    pub fn route(&mut self, route: Route, handler: impl RequestHandler + 'static) -> &mut Self {
+    pub fn route(&mut self, route: Route, handler: impl Into<SharedRequestHandler>) -> &mut Self {
         self.routes.push(InnerRoute {
             route,
-            handler: Next::from(DynHandler::new(handler)),
+            handler: Next::from(handler.into()),
         });
         self
     }
@@ -49,14 +45,24 @@ impl Group {
         &mut self,
         mut group: impl AsMut<Group>,
     ) -> Result<&mut Self, crate::server::Error> {
-        let group = group.as_mut().take();
-        self.routes
-            .extend(group.routes.into_iter().map(|mut route| {
+        let mut group = group.as_mut().take();
+        // Wrap routes with the middlewares defined on the group.
+        let wrapped_routes = std::mem::take(&mut group.routes)
+            .into_iter()
+            .map(|mut route| {
                 route.route.path = concat_path(&group.base_path, &route.route.path);
-                route.handler = group.middleware.wrap(route.handler.clone());
+                route.handler = group.apply_middlewares(route.handler);
                 route
-            }));
+            });
+        self.routes.extend(wrapped_routes);
         Ok(self)
+    }
+
+    fn apply_middlewares(&self, handler: Next) -> Next {
+        self.middlewares
+            .iter()
+            .rev()
+            .fold(handler, |stack, middleware| middleware.clone().wrap(stack))
     }
 
     pub fn take(&mut self) -> Self {
@@ -156,19 +162,10 @@ impl Server {
         &mut self,
         mut group: impl AsMut<Group>,
     ) -> Result<&mut Self, crate::server::Error> {
-        let group = group.as_mut().take();
-        for mut route in group.routes.into_iter() {
+        let mut group = group.as_mut().take();
+        for mut route in std::mem::take(&mut group.routes).into_iter() {
             route.route.path = concat_path(&group.base_path, &route.route.path);
-            let next = route.handler.clone();
-            let middleware = group.middleware.clone();
-            let handler = move |request: crate::server::Request| {
-                let next = next.clone();
-                let middleware = middleware.clone();
-                async move {
-                    let request = Request::from(request);
-                    middleware.call(request, next).await
-                }
-            };
+            let handler: SharedRequestHandler = group.apply_middlewares(route.handler).into();
             self.route(route.route, handler)?;
         }
         Ok(self)

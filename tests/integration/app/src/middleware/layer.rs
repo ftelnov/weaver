@@ -12,11 +12,11 @@ use weaver::{
         extras::json::Json,
         handler::HandlerFn,
         middleware::{MiddlewareFn, Next},
-        request::{FromRequest, Request},
+        request::FromRequest,
         response::ResponsePart,
         routing::Group,
     },
-    server::Response,
+    server::{Request, Response},
 };
 
 pub fn group() -> Group {
@@ -38,6 +38,14 @@ pub fn group() -> Group {
                         .post("/echo", HandlerFn::new(handler)),
                 )
                 .unwrap(),
+        )
+        .unwrap()
+        .group(
+            Group::default()
+                .path("/flat_combined")
+                .middleware(MiddlewareFn::new(first_middleware))
+                .middleware(MiddlewareFn::new(second_middleware))
+                .post("/echo", HandlerFn::new(handler)),
         )
         .unwrap()
         .take()

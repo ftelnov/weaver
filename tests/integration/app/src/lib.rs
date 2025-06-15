@@ -6,10 +6,10 @@ use weaver::{
     frontend::{
         extras::json::Json,
         handler::HandlerFn,
-        request::{path::Path, Request},
+        request::path::Path,
         response::{Extend, ResponsePart},
     },
-    server::{BindParams, Body, Server, ServerConfigBuilder},
+    server::{BindParams, Body, Request, Server, ServerConfigBuilder},
 };
 
 pub mod methods;

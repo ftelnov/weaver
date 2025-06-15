@@ -1,5 +1,5 @@
 use super::{FromRequest, Request};
-use std::{collections::HashMap, ops::DerefMut as _};
+use std::collections::HashMap;
 
 /// Extracts path parameters from the request.
 /// It consumes the request's path parameters, so future invocations will result in an empty map.
@@ -27,7 +27,6 @@ impl FromRequest for Path {
     type Rejection = ();
 
     async fn from_request(request: &mut Request) -> Result<Self, Self::Rejection> {
-        let request = request.deref_mut();
         Ok(Self(std::mem::take(&mut request.params)))
     }
 }

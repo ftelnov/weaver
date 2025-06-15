@@ -149,6 +149,10 @@ async def test_middleware_chaining():
     assert response.status_code == 200, f"invalid response: {response}"
     assert response.json() == {"counter": 3}
 
+    response = await client.post("/flat_combined/echo", json={"hello": "world"})
+    assert response.status_code == 200, f"invalid response: {response}"
+    assert response.json() == {"counter": 3}
+
 
 @pytest.mark.asyncio
 async def test_methods_endpoint():
@@ -163,7 +167,10 @@ async def test_methods_endpoint():
 
     response = await client.request("VOROJBA", "/methods")
     assert response.status_code == 200, f"invalid response: {response}"
-    assert response.json() == {"method": "VOROJBA", "endpoint": "extension_first_endpoint"}
+    assert response.json() == {
+        "method": "VOROJBA",
+        "endpoint": "extension_first_endpoint",
+    }
 
     response = await client.request("ONE_HELL_LONG_VOROJBA_EXTENSION", "/methods")
     assert response.status_code == 200, f"invalid response: {response}"
