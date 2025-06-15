@@ -1,4 +1,3 @@
-use super::middleware::Middleware;
 use crate::{
     frontend::middleware::{Next, SharedMiddleware},
     server::{RequestHandler, Route, Server, SharedRequestHandler},
