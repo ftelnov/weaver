@@ -25,15 +25,15 @@ impl Group {
         self
     }
 
-    pub fn middleware(&mut self, middleware: impl Middleware + 'static) -> &mut Self {
-        self.middlewares.push(SharedMiddleware::new(middleware));
+    pub fn middleware(&mut self, middleware: impl Into<SharedMiddleware>) -> &mut Self {
+        self.middlewares.push(middleware.into());
         self
     }
 
-    pub fn route(&mut self, route: Route, handler: impl RequestHandler + 'static) -> &mut Self {
+    pub fn route(&mut self, route: Route, handler: impl Into<SharedRequestHandler>) -> &mut Self {
         self.routes.push(InnerRoute {
             route,
-            handler: Next::from(SharedRequestHandler::new(handler)),
+            handler: Next::from(handler.into()),
         });
         self
     }
